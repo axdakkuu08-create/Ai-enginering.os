@@ -16,7 +16,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: step-b-audit-\${{ github.ref }}
+  group: step-b-audit-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -32,7 +32,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: \${{ github.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 1
 
       - name: Set up Node.js
@@ -75,7 +75,7 @@ jobs:
         continue-on-error: true
         run: |
           set -uo pipefail
-          LOG_DIR="\${{ steps.init.outputs.log_dir }}"
+          LOG_DIR="${{ steps.init.outputs.log_dir }}"
           {
             echo "=== DEPENDENCY INSTALLATION ==="
             if [[ ! -f package-lock.json ]]; then
@@ -99,7 +99,7 @@ jobs:
             npx --no-install tsc --version
             exit "$INSTALL_EXIT"
           } 2>&1 | tee "$LOG_DIR/dependency-install.log"
-          exit "\${PIPESTATUS[0]}"
+          exit "${PIPESTATUS[0]}"
 
       - name: Execute Step B Vitest tests
         id: vitest
@@ -107,9 +107,9 @@ jobs:
         continue-on-error: true
         run: |
           set -uo pipefail
-          LOG_DIR="\${{ steps.init.outputs.log_dir }}"
+          LOG_DIR="${{ steps.init.outputs.log_dir }}"
           npx vitest run packages/core/tests/approval.test.ts --reporter=verbose 2>&1 | tee "$LOG_DIR/vitest-output.log"
-          TEST_EXIT="\${PIPESTATUS[0]}"
+          TEST_EXIT="${PIPESTATUS[0]}"
           echo "VITEST_EXIT_CODE=$TEST_EXIT" >> "$GITHUB_ENV"
           exit "$TEST_EXIT"
 
@@ -119,9 +119,9 @@ jobs:
         continue-on-error: true
         run: |
           set -uo pipefail
-          LOG_DIR="\${{ steps.init.outputs.log_dir }}"
+          LOG_DIR="${{ steps.init.outputs.log_dir }}"
           npx tsc --noEmit 2>&1 | tee "$LOG_DIR/typescript-output.log"
-          TSC_EXIT="\${PIPESTATUS[0]}"
+          TSC_EXIT="${PIPESTATUS[0]}"
           echo "TSC_EXIT_CODE=$TSC_EXIT" >> "$GITHUB_ENV"
           exit "$TSC_EXIT"
 
@@ -129,11 +129,11 @@ jobs:
         if: always()
         run: |
           set -uo pipefail
-          LOG_DIR="\${{ steps.init.outputs.log_dir }}"
+          LOG_DIR="${{ steps.init.outputs.log_dir }}"
           REPORT="$LOG_DIR/step-b-audit-report.md"
-          INSTALL_RESULT="\${INSTALL_EXIT_CODE:-not-run}"
-          VITEST_RESULT="\${VITEST_EXIT_CODE:-not-run}"
-          TSC_RESULT="\${TSC_EXIT_CODE:-not-run}"
+          INSTALL_RESULT="${INSTALL_EXIT_CODE:-not-run}"
+          VITEST_RESULT="${VITEST_EXIT_CODE:-not-run}"
+          TSC_RESULT="${TSC_EXIT_CODE:-not-run}"
           TEST_FILE_DISCOVERED="NOT VERIFIED"
           TEST_SUMMARY="NOT VERIFIED"
           if [[ -f "$LOG_DIR/vitest-output.log" ]]; then
@@ -193,9 +193,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: step-b-audit-\${{ github.run_id }}
+          name: step-b-audit-${{ github.run_id }}
           path: |
-            \${{ steps.init.outputs.log_dir }}/
+            ${{ steps.init.outputs.log_dir }}/
             package-lock.json
           if-no-files-found: warn
           retention-days: 14
