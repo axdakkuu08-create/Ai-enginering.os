@@ -200,3 +200,5 @@ jobs:
             package-lock.json
           if-no-files-found: warn
           retention-days: 14
+
+# Re-run trigger: validate the committed lockfile on the current branch head.
