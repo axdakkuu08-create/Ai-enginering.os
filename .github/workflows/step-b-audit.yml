@@ -63,7 +63,7 @@ jobs:
             echo "Initial tracked changes:"
             git diff --name-status
             echo "Initial untracked files:"
-            git ls-files --others --exclude-standard
+            git ls-files --others --exclude-standard | grep -v '^node_modules/' || true
           } | tee "$LOG_DIR/test_execution_audit.log"
           if [[ "$GITHUB_REF_NAME" != "feat/projects-registry" ]]; then
             echo "ERROR: Audit must run on feat/projects-registry."
@@ -137,10 +137,11 @@ jobs:
           TEST_FILE_DISCOVERED="NOT VERIFIED"
           TEST_SUMMARY="NOT VERIFIED"
           if [[ -f "$LOG_DIR/vitest-output.log" ]]; then
-            if grep -Eq 'Test Files[[:space:]]+[0-9]+ (passed|failed|skipped)' "$LOG_DIR/vitest-output.log"; then
+            sed -E 's/\x1B\[[0-9;]*[[:alpha:]]//g' "$LOG_DIR/vitest-output.log" > "$LOG_DIR/vitest-output-clean.log"
+            if grep -Eq 'Test Files[[:space:]]+[0-9]+ (passed|failed|skipped)' "$LOG_DIR/vitest-output-clean.log"; then
               TEST_FILE_DISCOVERED="SUMMARY PRESENT"
             fi
-            TEST_SUMMARY="$(grep -E '^[[:space:]]*Tests[[:space:]]+' "$LOG_DIR/vitest-output.log" | tail -n 1 || true)"
+            TEST_SUMMARY="$(grep -E '^[[:space:]]*Tests[[:space:]]+' "$LOG_DIR/vitest-output-clean.log" | tail -n 1 || true)"
             [[ -n "$TEST_SUMMARY" ]] || TEST_SUMMARY="No recognizable Vitest test summary; manual review required"
           fi
           if [[ -f package-lock.json ]] && ! git ls-files --error-unmatch package-lock.json >/dev/null 2>&1; then
@@ -180,7 +181,7 @@ jobs:
             git diff --name-status
             echo
             echo "Untracked files:"
-            git ls-files --others --exclude-standard
+            git ls-files --others --exclude-standard | grep -v '^node_modules/' || true
             echo
             echo "## Final audit status"
             echo "$AUDIT_STATUS"
