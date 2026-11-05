@@ -15,11 +15,12 @@ This file is the portfolio-level index for projects managed or explored through 
 
 | Project | Repository | Purpose | Current status |
 |---|---|---|---|
-| AI Engineering OS | [Ai-enginering.os](https://github.com/axdakkuu08-create/Ai-enginering.os) | Independent engineering workspace for planning, implementation, review, testing, and approval-gated delivery with AI agents. | Initial project registry created; scaffold pending. |
+| AI Engineering OS | [Ai-enginering.os](https://github.com/axdakkuu08-create/Ai-enginering.os) | Independent engineering workspace for planning, implementation, review, testing, and approval-gated delivery with AI agents. | Step B audit workflow succeeded on `fef0116d`; final acceptance HOLD pending artifact review. Step C not started; explicit authorization required. |
 | Gemini GitHub MCP Bridge | [gemini-github-mcp-bridge](https://github.com/axdakkuu08-create/gemini-github-mcp-bridge) | GitHub-connected MCP bridge and foundation for agent-assisted engineering workflows. | Existing project; keep changes isolated from this repository unless explicitly approved. |
 | NEXUS-AI | [NEXUS-AI-PUBLIC](https://github.com/axdakkuu08-create/NEXUS-AI-PUBLIC) | AI application / frontend project. | Existing project; maintain its own branches and release process. |
 | Pulse | [convex-backend-.001](https://github.com/axdakkuu08-create/convex-backend-.001) | Music discovery and playback application with cloud-backed library features. | Existing project; maintain its own branches and provider constraints. |
 | Arcane Protocol | [Arcane](https://github.com/axdakkuu08-create/Arcane) | Godot-based sci-fi first-person game prototype. | Existing project; keep separate from other game concepts and repositories. |
+| RepoPilot AI | Separate repository not yet confirmed | Standalone AI-assisted repository engineering product; potential later integration with AI Engineering OS only after independent verification. | Requirements and architecture collection only; implementation and repository changes are not authorized yet. |
 
 ## AI Engineering OS milestones
 
