@@ -93,9 +93,9 @@ This report records the evidence visible at the time of inspection. Re-check bra
 
 ## 7. Step B gap-closure implementation — 2026-11-06
 
-**Candidate revision:** `93417414009c3dc38c7596b52038e77a5c6a75c0`  
+**Candidate revision:** `7fd8377328f5ef0b8095ea01211547d74aad7a19`  
 **Branch:** `feat/projects-registry`  
-**Automated run:** [42202936458](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42202936458)  
+**Automated run:** [42203295460](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42203295460)  
 **Run conclusion:** success; exact candidate SHA tested
 
 ### Acceptance matrix
@@ -112,7 +112,7 @@ This report records the evidence visible at the time of inspection. Re-check bra
 
 ### Verification correction
 
-An intermediate run, **42202810134**, passed Vitest (23 tests) but TypeScript failed because a formatting test imported Node APIs without installed Node type declarations. That candidate was not accepted. The unsupported test and unconfigured format script were removed without adding dependencies or changing the workflow. The corrected candidate was then verified by run **42202936458** with 22 tests and TypeScript exit 0.
+An intermediate run, **42202810134**, passed Vitest (23 tests) but TypeScript failed because a formatting test imported Node APIs without installed Node type declarations. That candidate was not accepted. The unsupported test and unconfigured format script were removed without adding dependencies or changing the workflow. The corrected source was verified by run **42202936458** with 22 tests and TypeScript exit 0. A subsequent hardening change binds the decision actor to the task requester; final run **42203295460** verifies the resulting candidate with 23 tests and TypeScript exit 0.
 
 ### Scope and release decision
 

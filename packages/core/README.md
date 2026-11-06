@@ -5,14 +5,14 @@ This package contains provider-neutral contracts and small, deterministic policy
 ## Implemented
 
 - Shared project, task, approval, model request/response, and provider adapter types.
-- Approval gates bound to a proposal digest and base revision. Only a pending gate can receive a decision; only the `HUMAN` actor type is accepted by the policy primitive. Stale proposal/base revisions reject or invalidate the decision.
+- Approval gates bound to a proposal digest and base revision. Only a pending gate can receive a decision; only the `HUMAN` actor type is accepted; the actor identity is checked against the task requester. Stale proposal/base revisions reject or invalidate the decision.
 - Repository target validation requiring an explicit repository allow-list and a non-protected feature target branch.
 - Audit-event sanitization that drops fields with sensitive names, bounds nested values, and redacts common credential patterns before returning a safe event.
 - In-process worker concurrency guard with a default limit of one, configurable positive safe-integer limits, and idempotent release.
 
 ## Verification
 
-The current Step B candidate was verified by GitHub Actions run [42202936458](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42202936458): 22 Vitest tests passed and TypeScript completed with exit code 0.
+The current Step B candidate was verified by GitHub Actions run [42203295460](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42203295460): 23 Vitest tests passed and TypeScript completed with exit code 0.
 
 ## Security boundaries and limitations
 
