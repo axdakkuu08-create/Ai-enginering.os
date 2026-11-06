@@ -60,16 +60,47 @@ function encodeTextBase64Url(value: string): string {
   return encodeBase64Url(new TextEncoder().encode(value));
 }
 
+function encodeDerLength(length: number): Uint8Array {
+  if (length < 128) return new Uint8Array([length]);
+  const bytes: number[] = [];
+  let remaining = length;
+  while (remaining > 0) {
+    bytes.unshift(remaining & 0xff);
+    remaining >>>= 8;
+  }
+  return new Uint8Array([0x80 | bytes.length, ...bytes]);
+}
+
+function wrapPkcs1AsPkcs8(pkcs1: Uint8Array): Uint8Array {
+  const algorithmIdentifier = new Uint8Array([
+    0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
+    0x01, 0x05, 0x00,
+  ]);
+  const octetString = new Uint8Array([
+    0x04,
+    ...encodeDerLength(pkcs1.length),
+    ...pkcs1,
+  ]);
+  const body = new Uint8Array([
+    0x02, 0x01, 0x00,
+    ...algorithmIdentifier,
+    ...octetString,
+  ]);
+  return new Uint8Array([0x30, ...encodeDerLength(body.length), ...body]);
+}
+
 function pemToDer(pem: string): ArrayBuffer {
+  const isPkcs1 = pem.includes("-----BEGIN RSA PRIVATE KEY-----");
   const normalized = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
-    .replace(/-----END PRIVATE KEY-----/g, "")
-    .replace(/\s/g, "");
+    .replace(/-----BEGIN (?:RSA )?PRIVATE KEY-----/g, "")
+    .replace(/-----END (?:RSA )?PRIVATE KEY-----/g, "")
+    .replace(/\\s/g, "");
   if (!normalized || !/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
     throw new GitHubAppAuthorizationError("GitHub App private key is malformed.");
   }
   const binary = atob(normalized);
-  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const decoded = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const bytes = isPkcs1 ? wrapPkcs1AsPkcs8(decoded) : decoded;
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 }
 
