@@ -89,3 +89,38 @@ Do not copy source code or make changes in these independent repositories from t
 
 ---
 This report records the evidence visible at the time of inspection. Re-check branch heads and workflow runs before relying on it for a later release decision.
+
+
+## 7. Step B gap-closure implementation — 2026-11-06
+
+**Candidate revision:** `93417414009c3dc38c7596b52038e77a5c6a75c0`  
+**Branch:** `feat/projects-registry`  
+**Automated run:** [42202936458](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42202936458)  
+**Run conclusion:** success; exact candidate SHA tested
+
+### Acceptance matrix
+
+| Gap-closure item | Result | Evidence and boundary |
+|---|---|---|
+| Provider-independent model contracts | PASS | Added provider-neutral request, response, usage, adapter, and shared task interfaces; fixture adapter contract test passed. No live provider or credentials integrated. |
+| Repository-target validation | PASS | Added explicit repository allow-list membership, owner/repository syntax checks, branch-name checks, protected target-branch rejection, and base/target separation tests. The allow-list must come from trusted configuration at the future call site. |
+| Audit-event safety | PASS (policy primitive) | Added pre-persistence removal of sensitive-key fields, bounded nested data, common credential-pattern redaction, and tests. This is not a durable audit store, exhaustive secret detector, or tamper-proof log. |
+| Approval invalidation | PASS (policy primitive) | Gates bind to proposal digest and base revision; stale decisions reject; changed revisions reset to PENDING; only HUMAN actor type can decide; repeated decisions are rejected; final checks revalidate the exact binding. Authentication/authorization of the human identity remains a future integration responsibility. |
+| Worker limits | PASS for specified in-process concurrency scope | Existing guard plus tests cover default and configured concurrency, invalid limits, limit rejection, idempotent release, and return to zero. CPU/memory/time quotas and OS/container isolation remain unimplemented and must not be inferred. |
+| Code quality evidence | PARTIAL / DEFERRED | Exact-revision TypeScript check passed and 22 Vitest tests passed. No ESLint or formatter is configured or run; no lint/formatter PASS is claimed. |
+| Final verification | PASS for automated checks | Run 42202936458 tested exact SHA `93417414009c3dc38c7596b52038e77a5c6a75c0`: dependency install exit 0, Vitest exit 0 (1 file, 22 passed, 0 failed), TypeScript exit 0. |
+
+### Verification correction
+
+An intermediate run, **42202810134**, passed Vitest (23 tests) but TypeScript failed because a formatting test imported Node APIs without installed Node type declarations. That candidate was not accepted. The unsupported test and unconfigured format script were removed without adding dependencies or changing the workflow. The corrected candidate was then verified by run **42202936458** with 22 tests and TypeScript exit 0.
+
+### Scope and release decision
+
+- Only the feature branch was updated. `main` remained at `e030750f66120b15829eb1f39504370efe5cba1c`.
+- `.github/workflows/step-b-audit.yml` was not modified.
+- No merge, deployment, external provider integration, or Step C implementation occurred.
+- Automated Step B checks now PASS on the candidate revision.
+- **Human final Step B acceptance remains HOLD** pending review of these limitations, especially caller-enforced identity/allow-list trust and deferred lint/formatter evidence.
+- **Step C remains BLOCKED** until a separate human acceptance decision and explicit authorization.
+
+The implementation consists of policy primitives and interfaces only. It does not establish authenticated human identity, production repository authorization, durable audit integrity, or infrastructure-level worker isolation.
