@@ -1,0 +1,139 @@
+name: Step B.1 Quality Checks
+
+on:
+  push:
+    branches:
+      - feat/projects-registry
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "packages/**"
+      - "eslint.config.js"
+      - ".prettierrc.json"
+      - ".prettierignore"
+      - ".github/workflows/step-b1-quality.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: step-b1-quality-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    name: Step B.1 Quality Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Generate and commit reproducible npm lockfile
+        id: lockfile
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF_NAME" != "feat/projects-registry" ]]; then
+            echo "Refusing to write outside feat/projects-registry."
+            exit 1
+          fi
+
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          git add package-lock.json
+
+          if git diff --cached --quiet; then
+            echo "Lockfile already matches package.json."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "chore: sync Step B.1 npm lockfile"
+            auth_header="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+            git -c http.extraheader="AUTHORIZATION: basic $auth_header" push origin HEAD:refs/heads/feat/projects-registry
+          fi
+
+          tested_sha="$(git rev-parse HEAD)"
+          echo "tested_sha=$tested_sha" >> "$GITHUB_OUTPUT"
+          echo "B1_TESTED_SHA=$tested_sha" >> "$GITHUB_ENV"
+          echo "Lockfile is committed at $tested_sha"
+
+      - name: Clean dependency installation
+        id: install
+        run: npm ci --no-audit --no-fund
+
+      - name: ESLint
+        id: lint
+        run: npm run lint
+
+      - name: Prettier check
+        id: prettier
+        run: npm run format:check
+
+      - name: Vitest
+        id: vitest
+        run: npm test
+
+      - name: TypeScript
+        id: typecheck
+        run: npm run typecheck
+
+      - name: Generate verification evidence
+        if: always()
+        env:
+          TESTED_SHA: ${{ steps.lockfile.outputs.tested_sha }}
+          INSTALL_RESULT: ${{ steps.install.outcome }}
+          LINT_RESULT: ${{ steps.lint.outcome }}
+          PRETTIER_RESULT: ${{ steps.prettier.outcome }}
+          VITEST_RESULT: ${{ steps.vitest.outcome }}
+          TYPECHECK_RESULT: ${{ steps.typecheck.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/step-b1-evidence"
+          report="$RUNNER_TEMP/step-b1-evidence/step-b1-verification.md"
+          {
+            echo "# Step B.1 Quality Verification"
+            echo
+            echo "- Repository: $GITHUB_REPOSITORY"
+            echo "- Trigger commit: $GITHUB_SHA"
+            echo "- Exact lockfile/test commit: ${TESTED_SHA:-not-created}"
+            echo "- Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo "- Node: $(node --version)"
+            echo "- npm: $(npm --version)"
+            echo
+            echo "| Check | Result |"
+            echo "|---|---|"
+            echo "| Lockfile generation/commit | ${TESTED_SHA:+COMMITTED}${TESTED_SHA:-NOT COMMITTED} |"
+            echo "| npm ci | $INSTALL_RESULT |"
+            echo "| ESLint | $LINT_RESULT |"
+            echo "| Prettier | $PRETTIER_RESULT |"
+            echo "| Vitest | $VITEST_RESULT |"
+            echo "| TypeScript | $TYPECHECK_RESULT |"
+            echo
+            echo "This report records CI outcomes only. It does not authorize merge, deployment, or Step C."
+          } > "$report"
+          cat "$report"
+
+      - name: Upload verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: step-b1-verification-${{ github.run_id }}
+          path: ${{ runner.temp }}/step-b1-evidence/
+          if-no-files-found: warn
+          retention-days: 14
