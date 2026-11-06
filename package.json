@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "format:check": "git diff --check"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "vitest": "^3.2.4",
