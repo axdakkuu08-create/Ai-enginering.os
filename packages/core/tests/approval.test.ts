@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  ApprovalAlreadyDecidedError,
   assertNotSelfApproval,
   canProceed,
   canProceedForProposal,
@@ -59,6 +62,12 @@ describe("approval gate", () => {
     expect(() => assertNotSelfApproval("human-1", "agent-1")).not.toThrow();
   });
 
+  it("normalizes identities before checking self-approval", () => {
+    expect(() => assertNotSelfApproval("agent-1", " agent-1 ")).toThrow(
+      UnauthorizedApprovalError,
+    );
+  });
+
   it("rejects non-human approval actors", () => {
     expect(() => recordApprovalDecision(initialGate(), {
       status: "APPROVED",
@@ -82,6 +91,25 @@ describe("approval gate", () => {
     expect(canProceedForProposal(approved, "proposal-a", "base-a")).toBe(true);
     expect(canProceedForProposal(approved, "proposal-b", "base-a")).toBe(false);
     expect(canProceedForProposal(approved, "proposal-a", "base-b")).toBe(false);
+  });
+
+  it("prevents a second decision on an already decided gate", () => {
+    const approved = recordApprovalDecision(initialGate(), {
+      status: "APPROVED",
+      actorId: "human-1",
+      actorType: "HUMAN",
+      proposalDigest: "proposal-a",
+      baseRevision: "base-a",
+      timestamp: "2026-11-06T10:00:00.000Z",
+    });
+    expect(() => recordApprovalDecision(approved, {
+      status: "DENIED",
+      actorId: "human-2",
+      actorType: "HUMAN",
+      proposalDigest: "proposal-a",
+      baseRevision: "base-a",
+      timestamp: "2026-11-06T10:01:00.000Z",
+    })).toThrow(ApprovalAlreadyDecidedError);
   });
 
   it("rejects approval decisions for a stale proposal", () => {
@@ -249,5 +277,27 @@ describe("free-tier worker concurrency bounds", () => {
     releaseOne();
     releaseTwo();
     expect(guard.activeCount).toBe(0);
+  });
+});
+
+describe("source formatting checks", () => {
+  it("keeps Step B TypeScript sources free of trailing whitespace and CRLF", () => {
+    const sourceFiles = [
+      "packages/core/src/types/index.ts",
+      "packages/core/src/security/approval.ts",
+      "packages/core/src/security/worker-bounds.ts",
+      "packages/core/src/security/repository-target.ts",
+      "packages/core/src/security/audit-event.ts",
+      "packages/core/tests/approval.test.ts",
+    ];
+    for (const path of sourceFiles) {
+      const source = readFileSync(resolve(process.cwd(), path), "utf8");
+      expect(source.endsWith("\n"), `${path} must end with a newline`).toBe(true);
+      expect(source.includes("\r"), `${path} must use LF line endings`).toBe(false);
+      expect(
+        source.split("\n").every((line) => !/[\\t ]+$/.test(line)),
+        `${path} must not contain trailing whitespace`,
+      ).toBe(true);
+    }
   });
 });

@@ -17,6 +17,13 @@ export class StaleApprovalError extends Error {
   }
 }
 
+export class ApprovalAlreadyDecidedError extends Error {
+  public constructor() {
+    super("An approval gate can receive only one decision for its current revision.");
+    this.name = "ApprovalAlreadyDecidedError";
+  }
+}
+
 export interface ApprovalDecision {
   readonly status: "APPROVED" | "DENIED";
   readonly actorId: string;
@@ -61,20 +68,25 @@ export function assertNotSelfApproval(
   agentId: string,
   requestedBy: string,
 ): void {
-  if (!agentId.trim() || !requestedBy.trim()) {
+  const normalizedAgentId = agentId.trim();
+  const normalizedRequesterId = requestedBy.trim();
+  if (!normalizedAgentId || !normalizedRequesterId) {
     throw new UnauthorizedApprovalError("Approval identities must be non-empty.");
   }
 
-  if (agentId === requestedBy) {
+  if (normalizedAgentId === normalizedRequesterId) {
     throw new UnauthorizedApprovalError();
   }
 }
 
-/** Only a human decision for the exact current proposal can change the gate. */
+/** Only a human decision for the exact current proposal can change a pending gate. */
 export function recordApprovalDecision(
   gate: ApprovalGate,
   decision: ApprovalDecision,
 ): ApprovalGate {
+  if (gate.status !== "PENDING") {
+    throw new ApprovalAlreadyDecidedError();
+  }
   if (!decision.actorId.trim()) {
     throw new UnauthorizedApprovalError("Approval identity must be non-empty.");
   }
