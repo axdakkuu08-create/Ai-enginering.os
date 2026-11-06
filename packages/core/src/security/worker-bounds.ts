@@ -125,10 +125,10 @@ export async function runWithWorkerDeadline<T>(
 
   const deadline = new Promise<never>((_, reject) => {
     timeout = setTimeout(() => {
-      controller.abort();
       reject(
         new WorkerResourceLimitError("Worker execution deadline exceeded."),
       );
+      controller.abort();
     }, maxExecutionMs);
   });
 
