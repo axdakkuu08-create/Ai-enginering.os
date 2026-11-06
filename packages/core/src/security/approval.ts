@@ -37,6 +37,7 @@ export interface ApprovalDecision {
 export function createApprovalGate(input: {
   readonly id: string;
   readonly taskId: string;
+  readonly requestedBy: string;
   readonly proposalDigest: string;
   readonly baseRevision: string;
 }): ApprovalGate {
@@ -50,6 +51,7 @@ export function createApprovalGate(input: {
   return Object.freeze({
     id: input.id,
     taskId: input.taskId,
+    requestedBy: input.requestedBy,
     status: "PENDING" as const,
     authorizedBy: null,
     timestamp: null,
@@ -93,6 +95,7 @@ export function recordApprovalDecision(
   if (decision.actorType !== "HUMAN") {
     throw new UnauthorizedApprovalError("Only a human actor may decide an approval gate.");
   }
+  assertNotSelfApproval(decision.actorId, gate.requestedBy);
   if (
     decision.proposalDigest !== gate.proposalDigest ||
     decision.baseRevision !== gate.baseRevision

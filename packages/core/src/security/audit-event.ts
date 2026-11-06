@@ -37,7 +37,7 @@ function sanitizeValue(value: unknown, depth: number): unknown {
   }
   if (typeof value === "object") {
     const safe: Record<string, unknown> = {};
-    for (const [key, nested] of Object.entries(value)) {
+    for (const [key, nested] of Object.entries(value).slice(0, 50)) {
       if (!SENSITIVE_KEY.test(key)) {
         safe[key.slice(0, 100)] = sanitizeValue(nested, depth + 1);
       }

@@ -30,6 +30,7 @@ import type {
 const initialGate = () => createApprovalGate({
   id: "gate-1",
   taskId: "task-1",
+  requestedBy: "agent-requester",
   proposalDigest: "proposal-a",
   baseRevision: "base-a",
 });
@@ -64,6 +65,24 @@ describe("approval gate", () => {
     expect(() => assertNotSelfApproval("agent-1", " agent-1 ")).toThrow(
       UnauthorizedApprovalError,
     );
+  });
+
+  it("rejects a human identity that matches the requesting agent", () => {
+    const gate = createApprovalGate({
+      id: "gate-2",
+      taskId: "task-2",
+      requestedBy: "human-1",
+      proposalDigest: "proposal-a",
+      baseRevision: "base-a",
+    });
+    expect(() => recordApprovalDecision(gate, {
+      status: "APPROVED",
+      actorId: "human-1",
+      actorType: "HUMAN",
+      proposalDigest: "proposal-a",
+      baseRevision: "base-a",
+      timestamp: "2026-11-06T10:00:00.000Z",
+    })).toThrow(UnauthorizedApprovalError);
   });
 
   it("rejects non-human approval actors", () => {

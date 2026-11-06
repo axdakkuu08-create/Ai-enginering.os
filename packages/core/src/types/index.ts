@@ -31,6 +31,7 @@ export interface TaskRun {
 export interface ApprovalGate {
   readonly id: string;
   readonly taskId: string;
+  readonly requestedBy: string;
   readonly status: ApprovalStatus;
   readonly authorizedBy: string | null;
   readonly timestamp: string | null;
