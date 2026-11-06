@@ -60,7 +60,7 @@ Each job must have validated limits for:
 
 Network egress is denied by default. Unrestricted egress is prohibited. Resource-limit violations must stop the job and produce a safe structured error, such as `ResourceLimitExceededError`, without exposing sensitive payload contents.
 
-Application-level TypeScript validation is not a substitute for operating-system, container, or virtual-machine enforcement. The chosen platform must be independently evaluated.
+Application-level TypeScript validation is not a substitute for operating-system, container, or virtual-machine enforcement. The chosen platform must be independently evaluated. The current core package provides validated policy values, UTF-8 payload checks, exact-origin application checks, a cooperative aborting deadline, and an in-process concurrency guard only; it does not enforce CPU/memory quotas, terminate non-cooperative work, or provide network isolation.
 
 ## 7. Network ingress and egress
 
@@ -82,7 +82,7 @@ In-memory immutability and readonly type declarations are useful defensive measu
 
 A newly created approval request must be `PENDING`. Both `PENDING` and `DENIED` block protected operations.
 
-Only an authenticated human actor with explicit authority may approve. Agent identities, service identities, and reviewer verdicts cannot grant human authorization. An agent cannot approve its own generated changes.
+Only an authenticated human actor with explicit authority may approve. Agent identities, service identities, and reviewer verdicts cannot grant human authorization. An agent cannot approve its own generated changes. The core approval boundary derives the subject and permission from an injected verifier, but the verifier itself must be a trusted server-side adapter backed by a real identity provider. Browser clients must never supply the verifier, trusted identity object, or server-resolved permissions.
 
 Approval must be bound to the exact proposed changes, repository, target branch, and relevant base revision. A changed proposal invalidates prior approval. Re-check the binding and authorization immediately before any protected operation.
 
