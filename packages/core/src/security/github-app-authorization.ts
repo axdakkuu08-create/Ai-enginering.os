@@ -94,7 +94,7 @@ function pemToDer(pem: string): ArrayBuffer {
   const normalized = pem
     .replace(/-----BEGIN (?:RSA )?PRIVATE KEY-----/g, "")
     .replace(/-----END (?:RSA )?PRIVATE KEY-----/g, "")
-    .replace(/\\s/g, "");
+    .replace(/\s/g, "");
   if (!normalized || !/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
     throw new GitHubAppAuthorizationError(
       "GitHub App private key is malformed.",
