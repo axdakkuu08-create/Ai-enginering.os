@@ -106,10 +106,9 @@ function pemToDer(pem: string): ArrayBuffer {
     (character) => character.charCodeAt(0),
   );
   const bytes = isPkcs1 ? wrapPkcs1AsPkcs8(decoded) : decoded;
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength,
-  );
+  const result = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(result).set(bytes);
+  return result;
 }
 
 function validateConfig(config: GitHubAppAuthConfig): void {
