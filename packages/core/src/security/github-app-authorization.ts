@@ -217,7 +217,7 @@ export async function authorizeGitHubRepository(
     `${API_BASE}/app/installations/${config.installationId}/access_tokens`,
     "POST",
     `Bearer ${appJwt}`,
-    JSON.stringify({ repository_ids: [repository.id] }),
+    JSON.stringify({ repository_ids: [repository.id], permissions: { contents: "read" } }),
   );
   if (
     typeof tokenResponse.token !== "string" ||
@@ -229,8 +229,14 @@ export async function authorizeGitHubRepository(
   }
 
   const permissions = tokenResponse.permissions;
-  if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) {
-    throw new GitHubAppAuthorizationError("GitHub did not return installation-token permissions.");
+  if (
+    !permissions ||
+    typeof permissions !== "object" ||
+    Array.isArray(permissions) ||
+    (permissions as Record<string, unknown>).contents !== "read" ||
+    Object.values(permissions as Record<string, unknown>).some((value) => value !== "read")
+  ) {
+    throw new GitHubAppAuthorizationError("Installation token permissions exceed the read-only policy.");
   }
 
   const accessible = await requestJson(
