@@ -19,21 +19,28 @@
 
 ## 2. Step B verification evidence
 
-The GitHub Actions workflow **Step B Core Scaffold Audit**, run **41817857911** (run 4), completed with conclusion **success** on the exact inspected branch HEAD `fef0116d0afe4b4a8c982bd1f51af8d19b73ff71`.
+The GitHub Actions workflow **Step B Core Scaffold Audit**, run **41817857911** (attempt 1), completed with conclusion **success** on `feat/projects-registry` at commit `fef0116d0afe4b4a8c982bd1f51af8d19b73ff71`.
 
-The job's recorded successful steps include:
+The downloaded artifact `step-b-audit-41817857911.zip` was independently inspected. It contains the generated audit report, execution audit, dependency-install log, TypeScript output, Vitest output, and the committed lockfile snapshot.
 
-1. Checkout repository.
-2. Set up Node.js.
-3. Generate lockfile if absent and install dependencies.
-4. Execute Step B Vitest tests.
-5. Execute TypeScript verification.
-6. Generate audit report.
-7. Upload audit evidence.
+**Captured results:**
 
-An artifact named `step-b-audit-41817857911` was listed for this run (14,502 bytes; SHA-256 digest recorded by GitHub as `0626ee0ba68f1dde2e03c2b01ec7a541a309d12433937527a996e0a2750ee4e7`). Its existence is verified; its archive contents and detailed test counts have not been independently inspected in this report.
+| Check | Actual recorded result |
+|---|---|
+| Dependency installation | Exit code 0; 52 packages added; committed lockfile used |
+| Node.js | v20.20.2 |
+| npm | 10.8.2 |
+| Vitest | v3.2.7; exit code 0 |
+| Test files | 1 passed |
+| Tests | 8 passed, 0 failed |
+| TypeScript | Exit code 0; output log empty (no diagnostics recorded) |
+| Working tree in runner | No tracked changes and no untracked files recorded |
 
-**Assessment:** The Step B audit workflow and its Vitest and TypeScript steps are verified as successful by GitHub Actions. This report does not claim that formatting, lint, production build, every security property, or infrastructure-level isolation has been verified. Keep Step B final acceptance on **HOLD pending review of the uploaded audit artifact and remaining phase-specific evidence**.
+The eight passing tests cover PENDING default/blocking, DENIED blocking, APPROVED-only allowance, agent self-approval rejection, a different approver identity passing the self-approval guard, default single-task concurrency, idempotent release, and invalid concurrency-limit rejection.
+
+**Important evidence boundary:** the audit's expected baseline was `70eebfe72a573145f114d99a6c3b9270ecd50357`. The tested commit was `fef0116d0afe4b4a8c982bd1f51af8d19b73ff71`. The audit report explicitly states that it does not verify a separate Codespace working tree, Android runtime, production deployment, or authorize merge/release. The empty TypeScript log is consistent with a successful exit but does not provide a detailed diagnostic transcript.
+
+**Assessment:** Step B's recorded automated Vitest and TypeScript checks **PASS**. Human phase acceptance remains **HOLD** until the owner reviews the scope and confirms the remaining Step B exit criteria. This audit does not establish infrastructure-level worker isolation, network-egress enforcement, production security, or all roadmap requirements.
 
 - [Workflow run](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/41817857911)
 - [Job details](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/41817857911/job/126533126993)
