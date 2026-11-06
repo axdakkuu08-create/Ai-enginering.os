@@ -33,8 +33,9 @@ describe("worker resource policy", () => {
   });
 
   it("denies egress by default and rejects non-allow-listed origins", () => {
-    expect(() => assertWorkerEgressAllowed("https://example.com/data", policy()))
-      .toThrow(WorkerResourceLimitError);
+    expect(() =>
+      assertWorkerEgressAllowed("https://example.com/data", policy()),
+    ).toThrow(WorkerResourceLimitError);
   });
 
   it("allows only an exact configured HTTPS origin", () => {
@@ -73,15 +74,11 @@ describe("worker resource policy", () => {
     const work = runWithWorkerDeadline(
       (signal) =>
         new Promise<string>((_, reject) => {
-          signal.addEventListener("abort", () =>
-            reject(new Error("aborted")),
-          );
+          signal.addEventListener("abort", () => reject(new Error("aborted")));
         }),
       10,
     );
-    const assertion = expect(work).rejects.toThrow(
-      WorkerResourceLimitError,
-    );
+    const assertion = expect(work).rejects.toThrow(WorkerResourceLimitError);
     await vi.advanceTimersByTimeAsync(10);
     await assertion;
     vi.useRealTimers();
