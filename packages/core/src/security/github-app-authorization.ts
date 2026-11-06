@@ -336,7 +336,11 @@ export async function authorizeGitHubRepository(
     `Bearer ${tokenResponse.token}`,
   );
   const repositories = accessible.repositories;
-  if (!Array.isArray(repositories) || repositories.length !== 1) {
+  if (
+    accessible.total_count !== 1 ||
+    !Array.isArray(repositories) ||
+    repositories.length !== 1
+  ) {
     throw new GitHubAppAuthorizationError(
       "Installation token is not restricted to exactly one repository.",
     );
