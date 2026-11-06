@@ -7,7 +7,10 @@ import {
   type GitHubAppHttpClient,
 } from "../src/security/github-app-authorization.js";
 
-const repository = { id: 1444678703, fullName: "axdakkuu08-create/Ai-enginering.os" };
+const repository = {
+  id: 1444678703,
+  fullName: "axdakkuu08-create/Ai-enginering.os",
+};
 
 async function privateKeyPem(): Promise<string> {
   const pair = await crypto.subtle.generateKey(
@@ -20,7 +23,9 @@ async function privateKeyPem(): Promise<string> {
     true,
     ["sign", "verify"],
   );
-  const der = new Uint8Array(await crypto.subtle.exportKey("pkcs8", pair.privateKey));
+  const der = new Uint8Array(
+    await crypto.subtle.exportKey("pkcs8", pair.privateKey),
+  );
   let binary = "";
   for (const byte of der) binary += String.fromCharCode(byte);
   const encoded = btoa(binary).match(/.{1,64}/g)?.join("\n") ?? "";
@@ -70,7 +75,9 @@ function successfulHttp(): GitHubAppHttpClient {
       });
     }
     if (url.endsWith("/installation/repositories?per_page=100")) {
-      expect(init.headers.Authorization).toBe("Bearer short-lived-fixture-token");
+      expect(init.headers.Authorization).toBe(
+        "Bearer short-lived-fixture-token",
+      );
       return jsonResponse({
         total_count: 1,
         repositories: [{ id: repository.id, full_name: repository.fullName }],
@@ -85,7 +92,9 @@ describe("GitHub App installation authorization", () => {
     const pem = await privateKeyPem();
     const jwt = await createGitHubAppJwt("123456", pem, 1_800_000_000);
     const [headerPart, payloadPart, signaturePart] = jwt.split(".");
-    expect(JSON.parse(atob(headerPart.replace(/-/g, "+").replace(/_/g, "/")))).toEqual({
+    expect(
+      JSON.parse(atob(headerPart.replace(/-/g, "+").replace(/_/g, "/"))),
+    ).toEqual({
       alg: "RS256",
       typ: "JWT",
     });
@@ -100,7 +109,9 @@ describe("GitHub App installation authorization", () => {
     expect(signaturePart.length).toBeGreaterThan(100);
   });
 
-  it("mints a token scoped to exactly the configured repository and read-only contents", async () => {
+  it(
+    "mints a token scoped to exactly the configured repository and read-only contents",
+    async () => {
     const result = await authorizeGitHubRepository(
       await config(),
       repository.fullName,
@@ -112,7 +123,9 @@ describe("GitHub App installation authorization", () => {
     expect(result.permissions).toEqual({ contents: "read", metadata: "read" });
   });
 
-  it("rejects a repository not present in the trusted server allow-list before network access", async () => {
+  it(
+    "rejects a repository not present in the trusted server allow-list before network access",
+    async () => {
     let requests = 0;
     const http: GitHubAppHttpClient = async () => {
       requests += 1;
@@ -136,7 +149,9 @@ describe("GitHub App installation authorization", () => {
     ).rejects.toThrow(/installation identity/i);
   });
 
-  it("rejects a token whose repository scope contains additional repositories", async () => {
+  it(
+    "rejects a token whose repository scope contains additional repositories",
+    async () => {
     const http: GitHubAppHttpClient = async (url) => {
       if (url.endsWith("/app/installations/987654")) {
         return jsonResponse({
