@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/projects-registry
+      - feat/github-app-auth
     paths:
       - "package.json"
       - "package-lock.json"
