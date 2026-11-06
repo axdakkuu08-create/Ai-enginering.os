@@ -84,7 +84,10 @@ export function assertPayloadWithinLimit(
   }
 }
 
-/** Exact-origin allow-list check. A network firewall must enforce this independently. */
+/**
+ * Exact-origin allow-list check. A network firewall must enforce this
+ * independently.
+ */
 export function assertWorkerEgressAllowed(
   destination: string,
   policy: WorkerResourcePolicy,
@@ -102,7 +105,9 @@ export function assertWorkerEgressAllowed(
     parsed.password ||
     !policy.allowedEgressOrigins.includes(parsed.origin)
   ) {
-    throw new WorkerResourceLimitError("Worker egress destination is not allowed.");
+    throw new WorkerResourceLimitError(
+      "Worker egress destination is not allowed.",
+    );
   }
 }
 
@@ -121,7 +126,9 @@ export async function runWithWorkerDeadline<T>(
   const deadline = new Promise<never>((_, reject) => {
     timeout = setTimeout(() => {
       controller.abort();
-      reject(new WorkerResourceLimitError("Worker execution deadline exceeded."));
+      reject(
+        new WorkerResourceLimitError("Worker execution deadline exceeded."),
+      );
     }, maxExecutionMs);
   });
 
