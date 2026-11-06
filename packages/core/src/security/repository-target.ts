@@ -36,9 +36,13 @@ function assertBranchName(branch: string, label: string): void {
     branch.includes("//") ||
     branch.includes("..") ||
     branch.includes("@{") ||
-    branch.split("/").some((part) => part.startsWith(".") || part.endsWith(".lock"))
+    branch
+      .split("/")
+      .some((part) => part.startsWith(".") || part.endsWith(".lock"))
   ) {
-    throw new InvalidRepositoryTargetError(`${label} is not a valid Git branch name.`);
+    throw new InvalidRepositoryTargetError(
+      `${label} is not a valid Git branch name.`,
+    );
   }
 }
 
@@ -48,7 +52,9 @@ export function validateRepositoryTarget(
 ): ValidatedRepositoryTarget {
   const { owner, repository, baseBranch, targetBranch } = input;
   if (!REPOSITORY_SEGMENT.test(owner) || !REPOSITORY_SEGMENT.test(repository)) {
-    throw new InvalidRepositoryTargetError("Repository owner or name is malformed.");
+    throw new InvalidRepositoryTargetError(
+      "Repository owner or name is malformed.",
+    );
   }
 
   const fullName = `${owner}/${repository}`;
@@ -56,17 +62,26 @@ export function validateRepositoryTarget(
     (entry) => entry.toLowerCase() === fullName.toLowerCase(),
   );
   if (!allowed) {
-    throw new InvalidRepositoryTargetError("Repository is not in the approved allow-list.");
+    throw new InvalidRepositoryTargetError(
+      "Repository is not in the approved allow-list.",
+    );
   }
 
   assertBranchName(baseBranch, "Base branch");
   assertBranchName(targetBranch, "Target branch");
 
-  if (targetBranch.toLowerCase() === "main" || targetBranch.toLowerCase() === "master") {
-    throw new InvalidRepositoryTargetError("Protected branches cannot be target branches.");
+  if (
+    targetBranch.toLowerCase() === "main" ||
+    targetBranch.toLowerCase() === "master"
+  ) {
+    throw new InvalidRepositoryTargetError(
+      "Protected branches cannot be target branches.",
+    );
   }
   if (baseBranch.toLowerCase() === targetBranch.toLowerCase()) {
-    throw new InvalidRepositoryTargetError("Base and target branches must be different.");
+    throw new InvalidRepositoryTargetError(
+      "Base and target branches must be different.",
+    );
   }
 
   return Object.freeze({

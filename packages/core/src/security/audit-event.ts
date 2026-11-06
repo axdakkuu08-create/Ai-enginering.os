@@ -13,7 +13,8 @@ export interface SafeAuditEvent extends Omit<AuditEventInput, "details"> {
   readonly details: Readonly<Record<string, unknown>>;
 }
 
-const SENSITIVE_KEY = /(authorization|cookie|password|secret|token|private.?key|api.?key|credential)/i;
+const SENSITIVE_KEY =
+  /(authorization|cookie|password|secret|token|private.?key|api.?key|credential)/i;
 const SECRET_VALUE_PATTERNS = [
   /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi,
   /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g,
@@ -33,7 +34,9 @@ function sanitizeValue(value: unknown, depth: number): unknown {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   if (typeof value === "boolean" || value === null) return value;
   if (Array.isArray(value)) {
-    return Object.freeze(value.slice(0, 50).map((item) => sanitizeValue(item, depth + 1)));
+    return Object.freeze(
+      value.slice(0, 50).map((item) => sanitizeValue(item, depth + 1)),
+    );
   }
   if (typeof value === "object") {
     const safe: Record<string, unknown> = {};
@@ -49,14 +52,23 @@ function sanitizeValue(value: unknown, depth: number): unknown {
 
 /** Redacts sensitive fields and credential-like values before an event is persisted. */
 export function createSafeAuditEvent(input: AuditEventInput): SafeAuditEvent {
-  if (!input.id.trim() || !input.actorId.trim() || !input.action.trim() || !input.target.trim()) {
-    throw new TypeError("Audit event identity, actor, action, and target are required.");
+  if (
+    !input.id.trim() ||
+    !input.actorId.trim() ||
+    !input.action.trim() ||
+    !input.target.trim()
+  ) {
+    throw new TypeError(
+      "Audit event identity, actor, action, and target are required.",
+    );
   }
   if (!Number.isFinite(Date.parse(input.timestamp))) {
     throw new TypeError("Audit event timestamp must be a valid date.");
   }
 
-  const details = sanitizeValue(input.details ?? {}, 0) as Readonly<Record<string, unknown>>;
+  const details = sanitizeValue(input.details ?? {}, 0) as Readonly<
+    Record<string, unknown>
+  >;
   return Object.freeze({
     id: input.id,
     timestamp: input.timestamp,

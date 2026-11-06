@@ -1,17 +1,18 @@
-import type {
-  ApprovalGate,
-  ApprovalStatus,
-} from "../types/index.js";
+import type { ApprovalGate, ApprovalStatus } from "../types/index.js";
 
 export class UnauthorizedApprovalError extends Error {
-  public constructor(message = "An agent cannot approve its own requested change.") {
+  public constructor(
+    message = "An agent cannot approve its own requested change.",
+  ) {
     super(message);
     this.name = "UnauthorizedApprovalError";
   }
 }
 
 export class StaleApprovalError extends Error {
-  public constructor(message = "Approval does not match the current proposal revision.") {
+  public constructor(
+    message = "Approval does not match the current proposal revision.",
+  ) {
     super(message);
     this.name = "StaleApprovalError";
   }
@@ -19,7 +20,9 @@ export class StaleApprovalError extends Error {
 
 export class ApprovalAlreadyDecidedError extends Error {
   public constructor() {
-    super("An approval gate can receive only one decision for its current revision.");
+    super(
+      "An approval gate can receive only one decision for its current revision.",
+    );
     this.name = "ApprovalAlreadyDecidedError";
   }
 }
@@ -42,7 +45,9 @@ export function createApprovalGate(input: {
   readonly baseRevision: string;
 }): ApprovalGate {
   if (!input.id.trim() || !input.taskId.trim()) {
-    throw new TypeError("Approval gate and task identifiers must be non-empty.");
+    throw new TypeError(
+      "Approval gate and task identifiers must be non-empty.",
+    );
   }
   if (!input.proposalDigest.trim() || !input.baseRevision.trim()) {
     throw new TypeError("Proposal digest and base revision must be non-empty.");
@@ -73,7 +78,9 @@ export function assertNotSelfApproval(
   const normalizedAgentId = agentId.trim();
   const normalizedRequesterId = requestedBy.trim();
   if (!normalizedAgentId || !normalizedRequesterId) {
-    throw new UnauthorizedApprovalError("Approval identities must be non-empty.");
+    throw new UnauthorizedApprovalError(
+      "Approval identities must be non-empty.",
+    );
   }
 
   if (normalizedAgentId === normalizedRequesterId) {
@@ -93,7 +100,9 @@ export function recordApprovalDecision(
     throw new UnauthorizedApprovalError("Approval identity must be non-empty.");
   }
   if (decision.actorType !== "HUMAN") {
-    throw new UnauthorizedApprovalError("Only a human actor may decide an approval gate.");
+    throw new UnauthorizedApprovalError(
+      "Only a human actor may decide an approval gate.",
+    );
   }
   assertNotSelfApproval(decision.actorId, gate.requestedBy);
   if (

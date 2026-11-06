@@ -13,11 +13,10 @@ export class WorkerConcurrencyGuard {
   private activeTasks = 0;
 
   public constructor(private readonly maxConcurrentTasks = 1) {
-    if (
-      !Number.isSafeInteger(maxConcurrentTasks) ||
-      maxConcurrentTasks < 1
-    ) {
-      throw new RangeError("maxConcurrentTasks must be a positive safe integer.");
+    if (!Number.isSafeInteger(maxConcurrentTasks) || maxConcurrentTasks < 1) {
+      throw new RangeError(
+        "maxConcurrentTasks must be a positive safe integer.",
+      );
     }
   }
 

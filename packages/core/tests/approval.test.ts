@@ -10,9 +10,7 @@ import {
   StaleApprovalError,
   UnauthorizedApprovalError,
 } from "../src/security/approval.js";
-import {
-  createSafeAuditEvent,
-} from "../src/security/audit-event.js";
+import { createSafeAuditEvent } from "../src/security/audit-event.js";
 import {
   WorkerConcurrencyGuard,
   WorkerConcurrencyLimitError,
@@ -27,13 +25,14 @@ import type {
   ModelResponse,
 } from "../src/types/index.js";
 
-const initialGate = () => createApprovalGate({
-  id: "gate-1",
-  taskId: "task-1",
-  requestedBy: "agent-requester",
-  proposalDigest: "proposal-a",
-  baseRevision: "base-a",
-});
+const initialGate = () =>
+  createApprovalGate({
+    id: "gate-1",
+    taskId: "task-1",
+    requestedBy: "agent-requester",
+    proposalDigest: "proposal-a",
+    baseRevision: "base-a",
+  });
 
 describe("approval gate", () => {
   it("defaults new gates to PENDING and blocks execution", () => {
@@ -75,25 +74,29 @@ describe("approval gate", () => {
       proposalDigest: "proposal-a",
       baseRevision: "base-a",
     });
-    expect(() => recordApprovalDecision(gate, {
-      status: "APPROVED",
-      actorId: "human-1",
-      actorType: "HUMAN",
-      proposalDigest: "proposal-a",
-      baseRevision: "base-a",
-      timestamp: "2026-11-06T10:00:00.000Z",
-    })).toThrow(UnauthorizedApprovalError);
+    expect(() =>
+      recordApprovalDecision(gate, {
+        status: "APPROVED",
+        actorId: "human-1",
+        actorType: "HUMAN",
+        proposalDigest: "proposal-a",
+        baseRevision: "base-a",
+        timestamp: "2026-11-06T10:00:00.000Z",
+      }),
+    ).toThrow(UnauthorizedApprovalError);
   });
 
   it("rejects non-human approval actors", () => {
-    expect(() => recordApprovalDecision(initialGate(), {
-      status: "APPROVED",
-      actorId: "agent-2",
-      actorType: "AGENT",
-      proposalDigest: "proposal-a",
-      baseRevision: "base-a",
-      timestamp: "2026-11-06T10:00:00.000Z",
-    })).toThrow(UnauthorizedApprovalError);
+    expect(() =>
+      recordApprovalDecision(initialGate(), {
+        status: "APPROVED",
+        actorId: "agent-2",
+        actorType: "AGENT",
+        proposalDigest: "proposal-a",
+        baseRevision: "base-a",
+        timestamp: "2026-11-06T10:00:00.000Z",
+      }),
+    ).toThrow(UnauthorizedApprovalError);
   });
 
   it("binds a human approval to the exact proposal and base revision", () => {
@@ -119,25 +122,29 @@ describe("approval gate", () => {
       baseRevision: "base-a",
       timestamp: "2026-11-06T10:00:00.000Z",
     });
-    expect(() => recordApprovalDecision(approved, {
-      status: "DENIED",
-      actorId: "human-2",
-      actorType: "HUMAN",
-      proposalDigest: "proposal-a",
-      baseRevision: "base-a",
-      timestamp: "2026-11-06T10:01:00.000Z",
-    })).toThrow(ApprovalAlreadyDecidedError);
+    expect(() =>
+      recordApprovalDecision(approved, {
+        status: "DENIED",
+        actorId: "human-2",
+        actorType: "HUMAN",
+        proposalDigest: "proposal-a",
+        baseRevision: "base-a",
+        timestamp: "2026-11-06T10:01:00.000Z",
+      }),
+    ).toThrow(ApprovalAlreadyDecidedError);
   });
 
   it("rejects approval decisions for a stale proposal", () => {
-    expect(() => recordApprovalDecision(initialGate(), {
-      status: "APPROVED",
-      actorId: "human-1",
-      actorType: "HUMAN",
-      proposalDigest: "proposal-old",
-      baseRevision: "base-a",
-      timestamp: "2026-11-06T10:00:00.000Z",
-    })).toThrow(StaleApprovalError);
+    expect(() =>
+      recordApprovalDecision(initialGate(), {
+        status: "APPROVED",
+        actorId: "human-1",
+        actorType: "HUMAN",
+        proposalDigest: "proposal-old",
+        baseRevision: "base-a",
+        timestamp: "2026-11-06T10:00:00.000Z",
+      }),
+    ).toThrow(StaleApprovalError);
   });
 
   it("invalidates an approval when proposal or base revision changes", () => {
@@ -149,11 +156,17 @@ describe("approval gate", () => {
       baseRevision: "base-a",
       timestamp: "2026-11-06T10:00:00.000Z",
     });
-    const refreshed = refreshApprovalForProposal(approved, "proposal-b", "base-a");
+    const refreshed = refreshApprovalForProposal(
+      approved,
+      "proposal-b",
+      "base-a",
+    );
     expect(refreshed.status).toBe("PENDING");
     expect(refreshed.authorizedBy).toBeNull();
     expect(refreshed.timestamp).toBeNull();
-    expect(canProceedForProposal(refreshed, "proposal-b", "base-a")).toBe(false);
+    expect(canProceedForProposal(refreshed, "proposal-b", "base-a")).toBe(
+      false,
+    );
   });
 });
 
@@ -167,30 +180,44 @@ describe("repository target validation", () => {
   };
 
   it("accepts an explicitly allow-listed repository and feature branch", () => {
-    expect(validateRepositoryTarget(validTarget).fullName).toBe("example-org/sample-repo");
+    expect(validateRepositoryTarget(validTarget).fullName).toBe(
+      "example-org/sample-repo",
+    );
   });
 
   it("rejects repositories outside the allow-list", () => {
-    expect(() => validateRepositoryTarget({
-      ...validTarget,
-      repository: "other-repo",
-    })).toThrow(InvalidRepositoryTargetError);
+    expect(() =>
+      validateRepositoryTarget({
+        ...validTarget,
+        repository: "other-repo",
+      }),
+    ).toThrow(InvalidRepositoryTargetError);
   });
 
   it("rejects protected or malformed target branches", () => {
-    for (const targetBranch of ["main", "master", "bad branch", "../escape", "feature//x"]) {
-      expect(() => validateRepositoryTarget({
-        ...validTarget,
-        targetBranch,
-      })).toThrow(InvalidRepositoryTargetError);
+    for (const targetBranch of [
+      "main",
+      "master",
+      "bad branch",
+      "../escape",
+      "feature//x",
+    ]) {
+      expect(() =>
+        validateRepositoryTarget({
+          ...validTarget,
+          targetBranch,
+        }),
+      ).toThrow(InvalidRepositoryTargetError);
     }
   });
 
   it("rejects identical base and target branches", () => {
-    expect(() => validateRepositoryTarget({
-      ...validTarget,
-      targetBranch: "main",
-    })).toThrow(InvalidRepositoryTargetError);
+    expect(() =>
+      validateRepositoryTarget({
+        ...validTarget,
+        targetBranch: "main",
+      }),
+    ).toThrow(InvalidRepositoryTargetError);
   });
 });
 
@@ -221,14 +248,16 @@ describe("audit event privacy", () => {
   });
 
   it("rejects incomplete audit event identity", () => {
-    expect(() => createSafeAuditEvent({
-      id: "",
-      timestamp: "2026-11-06T10:00:00.000Z",
-      actorId: "human-1",
-      action: "test",
-      target: "repo",
-      outcome: "FAILED",
-    })).toThrow(TypeError);
+    expect(() =>
+      createSafeAuditEvent({
+        id: "",
+        timestamp: "2026-11-06T10:00:00.000Z",
+        actorId: "human-1",
+        action: "test",
+        target: "repo",
+        outcome: "FAILED",
+      }),
+    ).toThrow(TypeError);
   });
 });
 
@@ -296,4 +325,3 @@ describe("free-tier worker concurrency bounds", () => {
     expect(guard.activeCount).toBe(0);
   });
 });
-
