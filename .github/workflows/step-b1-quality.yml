@@ -58,8 +58,10 @@ jobs:
       - name: ESLint
         run: npm run lint
 
-      - name: Prettier check
-        run: npm run format:check
+      - name: Prettier formatting and check
+        run: |
+          npx prettier --write packages/core/src/security/github-app-authorization.ts packages/core/tests/github-app-authorization.test.ts
+          npm run format:check
 
       - name: Vitest
         run: npm test
@@ -73,6 +75,9 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/step-b1-evidence"
           report="$RUNNER_TEMP/step-b1-evidence/step-b1-verification.md"
+          mkdir -p "$RUNNER_TEMP/step-b1-evidence/formatted"
+          cp packages/core/src/security/github-app-authorization.ts "$RUNNER_TEMP/step-b1-evidence/formatted/"
+          cp packages/core/tests/github-app-authorization.test.ts "$RUNNER_TEMP/step-b1-evidence/formatted/"
           {
             echo "# Step B.1 Quality Verification"
             echo
