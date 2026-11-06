@@ -96,23 +96,41 @@ function pemToDer(pem: string): ArrayBuffer {
     .replace(/-----END (?:RSA )?PRIVATE KEY-----/g, "")
     .replace(/\\s/g, "");
   if (!normalized || !/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
-    throw new GitHubAppAuthorizationError("GitHub App private key is malformed.");
+    throw new GitHubAppAuthorizationError(
+      "GitHub App private key is malformed.",
+    );
   }
   const binary = atob(normalized);
-  const decoded = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const decoded = Uint8Array.from(
+    binary,
+    (character) => character.charCodeAt(0),
+  );
   const bytes = isPkcs1 ? wrapPkcs1AsPkcs8(decoded) : decoded;
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  );
 }
 
 function validateConfig(config: GitHubAppAuthConfig): void {
-  if (!/^\d+$/.test(config.appId) || !Number.isSafeInteger(config.installationId) || config.installationId <= 0) {
-    throw new GitHubAppAuthorizationError("GitHub App and installation IDs must be valid numeric identifiers.");
+  if (
+    !/^\d+$/.test(config.appId) ||
+    !Number.isSafeInteger(config.installationId) ||
+    config.installationId <= 0
+  ) {
+    throw new GitHubAppAuthorizationError(
+      "GitHub App and installation IDs must be valid numeric identifiers.",
+    );
   }
   if (!config.expectedAccountLogin.trim() || !config.privateKeyPem.trim()) {
-    throw new GitHubAppAuthorizationError("GitHub App account and private-key configuration are required.");
+    throw new GitHubAppAuthorizationError(
+      "GitHub App account and private-key configuration are required.",
+    );
   }
   if (config.allowedRepositories.length === 0) {
-    throw new GitHubAppAuthorizationError("At least one explicitly authorized repository is required.");
+    throw new GitHubAppAuthorizationError(
+      "At least one explicitly authorized repository is required.",
+    );
   }
   const names = new Set<string>();
   const ids = new Set<number>();
@@ -122,11 +140,15 @@ function validateConfig(config: GitHubAppAuthConfig): void {
       repository.id <= 0 ||
       !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository.fullName)
     ) {
-      throw new GitHubAppAuthorizationError("The repository allow-list contains an invalid entry.");
+      throw new GitHubAppAuthorizationError(
+        "The repository allow-list contains an invalid entry.",
+      );
     }
     const normalizedName = repository.fullName.toLowerCase();
     if (names.has(normalizedName) || ids.has(repository.id)) {
-      throw new GitHubAppAuthorizationError("The repository allow-list contains duplicate entries.");
+      throw new GitHubAppAuthorizationError(
+        "The repository allow-list contains duplicate entries.",
+      );
     }
     names.add(normalizedName);
     ids.add(repository.id);
@@ -139,12 +161,22 @@ export async function createGitHubAppJwt(
   privateKeyPem: string,
   nowSeconds = Math.floor(Date.now() / 1000),
 ): Promise<string> {
-  if (!/^\d+$/.test(appId) || !Number.isSafeInteger(nowSeconds) || nowSeconds <= 0) {
+  if (
+    !/^\d+$/.test(appId) ||
+    !Number.isSafeInteger(nowSeconds) ||
+    nowSeconds <= 0
+  ) {
     throw new GitHubAppAuthorizationError("GitHub App JWT claims are invalid.");
   }
-  const header = encodeTextBase64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const header = encodeTextBase64Url(
+    JSON.stringify({ alg: "RS256", typ: "JWT" }),
+  );
   const payload = encodeTextBase64Url(
-    JSON.stringify({ iat: nowSeconds - 60, exp: nowSeconds + TOKEN_TTL_SECONDS, iss: appId }),
+    JSON.stringify({
+      iat: nowSeconds - 60,
+      exp: nowSeconds + TOKEN_TTL_SECONDS,
+      iss: appId,
+    }),
   );
   const signingInput = `${header}.${payload}`;
   let key: CryptoKey;
@@ -157,7 +189,9 @@ export async function createGitHubAppJwt(
       ["sign"],
     );
   } catch {
-    throw new GitHubAppAuthorizationError("GitHub App private key could not be imported.");
+    throw new GitHubAppAuthorizationError(
+      "GitHub App private key could not be imported.",
+    );
   }
   const signature = await crypto.subtle.sign(
     "RSASSA-PKCS1-v1_5",
@@ -187,19 +221,27 @@ async function requestJson(
       ...(body ? { body } : {}),
     });
   } catch {
-    throw new GitHubAppAuthorizationError("GitHub App authorization request failed.");
+    throw new GitHubAppAuthorizationError(
+      "GitHub App authorization request failed.",
+    );
   }
   if (!response.ok) {
-    throw new GitHubAppAuthorizationError(`GitHub App authorization was rejected (HTTP ${response.status}).`);
+    throw new GitHubAppAuthorizationError(
+      `GitHub App authorization was rejected (HTTP ${response.status}).`,
+    );
   }
   let value: unknown;
   try {
     value = await response.json();
   } catch {
-    throw new GitHubAppAuthorizationError("GitHub returned an unreadable authorization response.");
+    throw new GitHubAppAuthorizationError(
+      "GitHub returned an unreadable authorization response.",
+    );
   }
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new GitHubAppAuthorizationError("GitHub returned an invalid authorization response.");
+    throw new GitHubAppAuthorizationError(
+      "GitHub returned an invalid authorization response.",
+    );
   }
   return value as Record<string, unknown>;
 }
@@ -225,10 +267,16 @@ export async function authorizeGitHubRepository(
     (entry) => entry.fullName.toLowerCase() === requestedFullName.toLowerCase(),
   );
   if (!repository) {
-    throw new GitHubAppAuthorizationError("Repository is not in the server-side allow-list.");
+    throw new GitHubAppAuthorizationError(
+      "Repository is not in the server-side allow-list.",
+    );
   }
 
-  const appJwt = await createGitHubAppJwt(config.appId, config.privateKeyPem, nowSeconds);
+  const appJwt = await createGitHubAppJwt(
+    config.appId,
+    config.privateKeyPem,
+    nowSeconds,
+  );
   const installation = await requestJson(
     http,
     `${API_BASE}/app/installations/${config.installationId}`,
@@ -240,7 +288,9 @@ export async function authorizeGitHubRepository(
     installation.id !== config.installationId ||
     account?.login !== config.expectedAccountLogin
   ) {
-    throw new GitHubAppAuthorizationError("GitHub App installation identity did not match trusted configuration.");
+    throw new GitHubAppAuthorizationError(
+      "GitHub App installation identity did not match trusted configuration.",
+    );
   }
 
   const tokenResponse = await requestJson(
@@ -248,7 +298,10 @@ export async function authorizeGitHubRepository(
     `${API_BASE}/app/installations/${config.installationId}/access_tokens`,
     "POST",
     `Bearer ${appJwt}`,
-    JSON.stringify({ repository_ids: [repository.id], permissions: { contents: "read" } }),
+    JSON.stringify({
+      repository_ids: [repository.id],
+      permissions: { contents: "read" },
+    }),
   );
   if (
     typeof tokenResponse.token !== "string" ||
@@ -256,7 +309,9 @@ export async function authorizeGitHubRepository(
     typeof tokenResponse.expires_at !== "string" ||
     !Number.isFinite(Date.parse(tokenResponse.expires_at))
   ) {
-    throw new GitHubAppAuthorizationError("GitHub did not return a valid short-lived installation token.");
+    throw new GitHubAppAuthorizationError(
+      "GitHub did not return a valid short-lived installation token.",
+    );
   }
 
   const permissions = tokenResponse.permissions;
@@ -265,9 +320,13 @@ export async function authorizeGitHubRepository(
     typeof permissions !== "object" ||
     Array.isArray(permissions) ||
     (permissions as Record<string, unknown>).contents !== "read" ||
-    Object.values(permissions as Record<string, unknown>).some((value) => value !== "read")
+    Object.values(permissions as Record<string, unknown>).some(
+      (value) => value !== "read",
+    )
   ) {
-    throw new GitHubAppAuthorizationError("Installation token permissions exceed the read-only policy.");
+    throw new GitHubAppAuthorizationError(
+      "Installation token permissions exceed the read-only policy.",
+    );
   }
 
   const accessible = await requestJson(
@@ -278,7 +337,9 @@ export async function authorizeGitHubRepository(
   );
   const repositories = accessible.repositories;
   if (!Array.isArray(repositories) || repositories.length !== 1) {
-    throw new GitHubAppAuthorizationError("Installation token is not restricted to exactly one repository.");
+    throw new GitHubAppAuthorizationError(
+      "Installation token is not restricted to exactly one repository.",
+    );
   }
   const granted = repositories[0] as Record<string, unknown>;
   if (
@@ -286,7 +347,9 @@ export async function authorizeGitHubRepository(
     typeof granted.full_name !== "string" ||
     granted.full_name.toLowerCase() !== repository.fullName.toLowerCase()
   ) {
-    throw new GitHubAppAuthorizationError("Installation token repository scope does not match the requested repository.");
+    throw new GitHubAppAuthorizationError(
+      "Installation token repository scope does not match the requested repository.",
+    );
   }
 
   return Object.freeze({
