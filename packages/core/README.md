@@ -11,6 +11,14 @@ This package contains provider-neutral contracts and deterministic policy helper
 - Audit-event sanitization that drops selected sensitive fields, bounds nested values, and redacts common credential patterns before returning a safe event.
 - Validated worker resource policy fields for execution deadline, memory budget, input/output byte limits, concurrency, and exact HTTPS egress origins.
 - UTF-8 payload-size checks, exact-origin egress policy checks, an aborting cooperative deadline wrapper, and an in-process concurrency guard.
+- A server-side GitHub App authorization adapter that creates short-lived RS256 app JWTs with Web Crypto, verifies the configured installation/account, requests a single-repository installation token with `contents: read`, and verifies the token's exact repository scope before returning it. It accepts an injected HTTP transport and trusted server configuration; it does not read credentials from client input.
+
+## GitHub App authorization setup boundary
+
+The GitHub App adapter requires trusted server configuration for the App ID, installation ID, expected account login, PEM private key, and repository allow-list entries containing both canonical `owner/repository` names and immutable repository IDs. The private key and returned installation token must remain server-side. The current adapter deliberately requests only read access to repository contents; write operations and approval-bound GitHub mutations are not implemented.
+
+The automated tests use generated fixture keys and mocked GitHub responses. They do not authenticate against a live GitHub App installation. No App private key or application secret is configured in this repository, and the existing ChatGPT GitHub connection's installation is not treated as the application's runtime credential.
+
 
 ## Verification
 
