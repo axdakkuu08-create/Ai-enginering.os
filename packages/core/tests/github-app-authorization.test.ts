@@ -109,37 +109,33 @@ describe("GitHub App installation authorization", () => {
     expect(signaturePart.length).toBeGreaterThan(100);
   });
 
-  it(
-    "mints a token scoped to exactly the configured repository and read-only contents",
-    async () => {
-      const result = await authorizeGitHubRepository(
-        await config(),
-        repository.fullName,
-        successfulHttp(),
-        1_800_000_000,
-      );
-      expect(result.repository).toEqual(repository);
-      expect(result.token).toBe("short-lived-fixture-token");
-      expect(result.permissions).toEqual({ contents: "read", metadata: "read" });
-  });
+  it("mints a token scoped to exactly the configured repository and read-only contents", async () => {
+    const result = await authorizeGitHubRepository(
+      await config(),
+      repository.fullName,
+      successfulHttp(),
+      1_800_000_000,
+    );
+    expect(result.repository).toEqual(repository);
+    expect(result.token).toBe("short-lived-fixture-token");
+    expect(result.permissions).toEqual({ contents: "read", metadata: "read" });
+  });;
 
-  it(
-    "rejects a repository not present in the trusted server allow-list before network access",
-    async () => {
-      let requests = 0;
-      const http: GitHubAppHttpClient = async () => {
-        requests += 1;
-        return jsonResponse({});
-      };
-      await expect(
-        authorizeGitHubRepository(
-          await config(),
-          "another-owner/another-repository",
-          http,
-        ),
-      ).rejects.toThrow(GitHubAppAuthorizationError);
-      expect(requests).toBe(0);
-  });
+  it("rejects a repository not present in the trusted server allow-list before network access", async () => {
+    let requests = 0;
+    const http: GitHubAppHttpClient = async () => {
+      requests += 1;
+      return jsonResponse({});
+    };
+    await expect(
+      authorizeGitHubRepository(
+        await config(),
+        "another-owner/another-repository",
+        http,
+      ),
+    ).rejects.toThrow(GitHubAppAuthorizationError);
+    expect(requests).toBe(0);
+  });;
 
   it("rejects an installation owned by an unexpected account", async () => {
     const http: GitHubAppHttpClient = async () =>
@@ -149,35 +145,33 @@ describe("GitHub App installation authorization", () => {
     ).rejects.toThrow(/installation identity/i);
   });
 
-  it(
-    "rejects a token whose repository scope contains additional repositories",
-    async () => {
-      const http: GitHubAppHttpClient = async (url) => {
-        if (url.endsWith("/app/installations/987654")) {
-          return jsonResponse({
-            id: 987654,
-            account: { login: "axdakkuu08-create" },
-          });
-        }
-        if (url.endsWith("/access_tokens")) {
-          return jsonResponse({
-            token: "short-lived-fixture-token",
-            expires_at: "2026-11-06T19:00:00Z",
-            permissions: { contents: "read" },
-          });
-        }
+  it("rejects a token whose repository scope contains additional repositories", async () => {
+    const http: GitHubAppHttpClient = async (url) => {
+      if (url.endsWith("/app/installations/987654")) {
         return jsonResponse({
-          total_count: 2,
-          repositories: [
-            { id: repository.id, full_name: repository.fullName },
-            { id: 111, full_name: "other-owner/other-repository" },
-          ],
+          id: 987654,
+          account: { login: "axdakkuu08-create" },
         });
-      };
-      await expect(
-        authorizeGitHubRepository(await config(), repository.fullName, http),
-      ).rejects.toThrow(/exactly one repository/i);
-  });
+      }
+      if (url.endsWith("/access_tokens")) {
+        return jsonResponse({
+          token: "short-lived-fixture-token",
+          expires_at: "2026-11-06T19:00:00Z",
+          permissions: { contents: "read" },
+        });
+      }
+      return jsonResponse({
+        total_count: 2,
+        repositories: [
+          { id: repository.id, full_name: repository.fullName },
+          { id: 111, full_name: "other-owner/other-repository" },
+        ],
+      });
+    };
+    await expect(
+      authorizeGitHubRepository(await config(), repository.fullName, http),
+    ).rejects.toThrow(/exactly one repository/i);
+  });;
 
   it("rejects write-capable installation token permissions", async () => {
     const http: GitHubAppHttpClient = async (url) => {
