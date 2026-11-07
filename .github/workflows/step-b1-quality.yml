@@ -58,8 +58,11 @@ jobs:
       - name: ESLint
         run: npm run lint
 
-      - name: Prettier formatting check
-        run: npm run format:check
+      - name: Temporary live-test formatting diagnostics
+        run: |
+          npx prettier --write packages/core/tests/github-app-live.integration.test.ts
+          git diff --no-ext-diff --unified=3 -- packages/core/tests/github-app-live.integration.test.ts
+          npm run format:check
 
       - name: Vitest
         run: npm test
