@@ -1,0 +1,57 @@
+name: GitHub App Live Read-Only Verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-app-live-verification-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify-installation:
+    name: Verify GitHub App installation and repository scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout selected feature ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Verify live GitHub App installation
+        env:
+          GH_APP_ID: ${{ secrets.GH_APP_ID }}
+          GH_APP_INSTALLATION_ID: ${{ secrets.GH_APP_INSTALLATION_ID }}
+          GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          GH_APP_ACCOUNT_LOGIN: ${{ secrets.GH_APP_ACCOUNT_LOGIN }}
+          GH_APP_REPOSITORY: ${{ secrets.GH_APP_REPOSITORY }}
+          GH_APP_REPOSITORY_ID: ${{ secrets.GH_APP_REPOSITORY_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_APP_ID"
+          test -n "$GH_APP_INSTALLATION_ID"
+          test -n "$GH_APP_PRIVATE_KEY"
+          test -n "$GH_APP_ACCOUNT_LOGIN"
+          test -n "$GH_APP_REPOSITORY"
+          test -n "$GH_APP_REPOSITORY_ID"
+          echo "All required GitHub App verification secrets are present."
+          echo "The test requests only a single-repository contents: read token."
+          npm test -- packages/core/tests/github-app-live.integration.test.ts
