@@ -119,7 +119,7 @@ describe("GitHub App installation authorization", () => {
     expect(result.repository).toEqual(repository);
     expect(result.token).toBe("short-lived-fixture-token");
     expect(result.permissions).toEqual({ contents: "read", metadata: "read" });
-  });;
+  });
 
   it("rejects a repository not present in the trusted server allow-list before network access", async () => {
     let requests = 0;
@@ -135,7 +135,7 @@ describe("GitHub App installation authorization", () => {
       ),
     ).rejects.toThrow(GitHubAppAuthorizationError);
     expect(requests).toBe(0);
-  });;
+  });
 
   it("rejects an installation owned by an unexpected account", async () => {
     const http: GitHubAppHttpClient = async () =>
@@ -171,7 +171,7 @@ describe("GitHub App installation authorization", () => {
     await expect(
       authorizeGitHubRepository(await config(), repository.fullName, http),
     ).rejects.toThrow(/exactly one repository/i);
-  });;
+  });
 
   it("rejects write-capable installation token permissions", async () => {
     const http: GitHubAppHttpClient = async (url) => {
