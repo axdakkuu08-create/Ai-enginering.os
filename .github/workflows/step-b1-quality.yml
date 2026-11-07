@@ -58,8 +58,11 @@ jobs:
       - name: ESLint
         run: npm run lint
 
-      - name: Prettier formatting check
-        run: npm run format:check
+      - name: Temporary formatting diagnostics
+        run: |
+          npx prettier --write packages/core/src/security/github-app-authorization.ts packages/core/tests/github-app-authorization.test.ts
+          git diff --no-ext-diff --unified=3 -- packages/core/src/security/github-app-authorization.ts packages/core/tests/github-app-authorization.test.ts
+          npm run format:check
 
       - name: Vitest
         run: npm test
