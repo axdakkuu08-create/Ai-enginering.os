@@ -101,9 +101,8 @@ function pemToDer(pem: string): ArrayBuffer {
     );
   }
   const binary = atob(normalized);
-  const decoded = Uint8Array.from(
-    binary,
-    (character) => character.charCodeAt(0),
+  const decoded = Uint8Array.from(binary, (character) =>
+    character.charCodeAt(0),
   );
   const bytes = isPkcs1 ? wrapPkcs1AsPkcs8(decoded) : decoded;
   const result = new ArrayBuffer(bytes.byteLength);
