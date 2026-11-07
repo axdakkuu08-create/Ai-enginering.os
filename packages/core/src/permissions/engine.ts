@@ -22,13 +22,14 @@ export class PermissionEngine {
   }
 
   public evaluate(request: AuthorizationRequest): AuthorizationDecision {
-    const initialPolicy =
-      request && typeof request.actorId === "string"
-        ? this.store.get(request.actorId)
-        : undefined;
-    const policyVersion = initialPolicy?.policyVersion ?? DEFAULT_POLICY_VERSION;
+    let policyVersion = DEFAULT_POLICY_VERSION;
 
     try {
+      const initialPolicy =
+        request && typeof request.actorId === "string"
+          ? this.store.get(request.actorId)
+          : undefined;
+      policyVersion = initialPolicy?.policyVersion ?? DEFAULT_POLICY_VERSION;
       if (!this.isValidRequest(request)) {
         return this.decision(false, "INVALID_REQUEST", policyVersion);
       }
