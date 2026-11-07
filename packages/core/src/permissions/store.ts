@@ -102,6 +102,9 @@ export class PolicyStore {
 
   public register(policy: AgentPolicy): void {
     validateAgentPolicy(policy);
+    if (this.policies.has(policy.actorId)) {
+      throw new Error("A policy is already registered for this actor; create a new store for a new policy snapshot");
+    }
     this.policies.set(policy.actorId, freezePolicy(policy));
   }
 
