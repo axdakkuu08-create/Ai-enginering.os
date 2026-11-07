@@ -356,6 +356,13 @@ describe("PermissionEngine - Milestone 1 verification", () => {
     ).toThrow(TypeError);
   });
 
+  test("policy store rejects replacement of an existing actor snapshot", () => {
+    engine.registerPolicy(allowPolicy());
+    expect(() => engine.registerPolicy(allowPolicy())).toThrow(
+      "A policy is already registered for this actor"
+    );
+  });
+
   test("registered policy snapshots cannot be mutated by the caller", () => {
     const policy = allowPolicy();
     engine.registerPolicy(policy);
