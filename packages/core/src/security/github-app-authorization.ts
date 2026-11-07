@@ -82,7 +82,9 @@ function wrapPkcs1AsPkcs8(pkcs1: Uint8Array): Uint8Array {
     ...pkcs1,
   ]);
   const body = new Uint8Array([
-    0x02, 0x01, 0x00,
+    0x02,
+    0x01,
+    0x00,
     ...algorithmIdentifier,
     ...octetString,
   ]);
