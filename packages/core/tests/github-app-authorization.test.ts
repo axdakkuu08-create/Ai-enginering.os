@@ -28,7 +28,10 @@ async function privateKeyPem(): Promise<string> {
   );
   let binary = "";
   for (const byte of der) binary += String.fromCharCode(byte);
-  const encoded = btoa(binary).match(/.{1,64}/g)?.join("\n") ?? "";
+  const encoded =
+    btoa(binary)
+      .match(/.{1,64}/g)
+      ?.join("\n") ?? "";
   return `-----BEGIN PRIVATE KEY-----\n${encoded}\n-----END PRIVATE KEY-----`;
 }
 
