@@ -19,6 +19,18 @@ The GitHub App adapter requires trusted server configuration for the App ID, ins
 
 The automated tests use generated fixture keys and mocked GitHub responses. They do not authenticate against a live GitHub App installation. No App private key or application secret is configured in this repository, and the existing ChatGPT GitHub connection's installation is not treated as the application's runtime credential.
 
+A separate push-triggered workflow, `.github/workflows/github-app-live-verification.yml`, provides an opt-in live check on `feat/github-app-auth`. To enable it, configure these repository Actions secrets in GitHub Settings (never commit them or paste the private key into chat):
+
+- `GH_APP_ID`
+- `GH_APP_INSTALLATION_ID`
+- `GH_APP_PRIVATE_KEY`
+- `GH_APP_ACCOUNT_LOGIN`
+- `GH_APP_REPOSITORY`
+- `GH_APP_REPOSITORY_ID`
+
+The workflow skips live authentication when any required secret is absent. Once all six are configured, the next push to `feat/github-app-auth` runs the live check. The workflow has `contents: read` only, disables checkout credential persistence, and requests a single-repository `contents: read` installation token. It does not perform repository writes, merges, or deployments.
+
+
 
 ## Verification
 
