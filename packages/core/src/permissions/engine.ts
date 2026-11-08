@@ -56,7 +56,7 @@ export class PermissionEngine {
 
       // Stage 5: privileged actions remain blocked until a trusted approval
       // verifier is implemented and explicitly integrated.
-      if (PRIVILEGED_CAPABILITIES.has(request.capability)) {
+      if (PRIVILEGED_CAPABILITIES.includes(request.capability)) {
         return this.decision(false, "PRIVILEGED_ACTION_BLOCKED", policyVersion);
       }
 
