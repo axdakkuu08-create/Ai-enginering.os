@@ -8,7 +8,7 @@ export enum CanonicalCapability {
   DEPLOY_EXECUTE = "deploy.execute"
 }
 
-export const PRIVILEGED_CAPABILITIES: ReadonlySet<string> = new Set([
+export const PRIVILEGED_CAPABILITIES: readonly string[] = Object.freeze([
   CanonicalCapability.MERGE_EXECUTE,
   CanonicalCapability.DEPLOY_EXECUTE
 ]);
