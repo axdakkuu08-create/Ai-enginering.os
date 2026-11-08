@@ -4,13 +4,6 @@ on:
   push:
     branches:
       - feat/projects-registry
-    paths:
-      - "packages/core/src/permissions/**"
-      - "packages/core/tests/permissions/**"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig.json"
-      - ".github/workflows/permissions-m1.yml"
   pull_request:
     paths:
       - "packages/core/src/permissions/**"
@@ -19,6 +12,7 @@ on:
       - "package-lock.json"
       - "tsconfig.json"
       - ".github/workflows/permissions-m1.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
