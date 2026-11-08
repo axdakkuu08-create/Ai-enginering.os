@@ -1,0 +1,52 @@
+name: Permission Engine Milestone 1
+
+on:
+  push:
+    branches:
+      - feat/projects-registry
+    paths:
+      - "packages/core/src/permissions/**"
+      - "packages/core/tests/permissions/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - ".github/workflows/permissions-m1.yml"
+  pull_request:
+    paths:
+      - "packages/core/src/permissions/**"
+      - "packages/core/tests/permissions/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - ".github/workflows/permissions-m1.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: permissions-m1-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Test and typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Run permission-engine tests
+        run: npm test
+
+      - name: Run strict TypeScript check
+        run: npm run typecheck
