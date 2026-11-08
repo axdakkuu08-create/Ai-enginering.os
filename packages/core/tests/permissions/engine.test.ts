@@ -4,7 +4,8 @@ import { PolicyStore } from "../../src/permissions/store.js";
 import {
   AgentPolicy,
   AuthorizationRequest,
-  CanonicalCapability
+  CanonicalCapability,
+  PRIVILEGED_CAPABILITIES
 } from "../../src/permissions/types.js";
 
 const readRequest = (overrides: Partial<AuthorizationRequest> = {}): AuthorizationRequest => ({
@@ -314,6 +315,13 @@ describe("PermissionEngine - Milestone 1 verification", () => {
     );
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe("INVALID_REQUEST");
+  });
+
+  test("privileged capability registry is immutable at runtime", () => {
+    expect(Object.isFrozen(PRIVILEGED_CAPABILITIES)).toBe(true);
+    expect(() =>
+      (PRIVILEGED_CAPABILITIES as unknown as string[]).push("repo.read")
+    ).toThrow();
   });
 
   test("privileged action remains blocked even with a policy allow and approval reference", () => {
