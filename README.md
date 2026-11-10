@@ -62,18 +62,37 @@ This is the intended architecture, not a claim that every component is already o
 
 ## Current project status
 
-<badge>Step A — PASS</badge> Architecture, repository inspection, project registry, and foundational documentation are complete.
+**Latest live audit: 2026-11-10.** The working branch is `feat/projects-registry`, inspected at `e9b350263590eb4704e98bd4ac5c15a0944fe166` before the documentation update. `main` remains at `e030750f66120b15829eb1f39504370efe5cba1c`. The feature branch is 69 commits ahead and 0 behind. No pull requests were returned by the live repository query.
 
-<badge>Step B — HOLD</badge> GitHub Actions run [41817857911](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/41817857911) succeeded on `fef0116d`. Its downloaded artifact was inspected: dependency install exit 0 (52 packages added), Vitest exit 0 (1 test file; 8 tests passed, 0 failed), and TypeScript exit 0 (empty diagnostics log). Automated checks PASS; human phase acceptance remains HOLD pending owner review of scope and remaining Step B criteria. See the [updated audit report](reports/2026-11-05-repository-and-portfolio-status.md).
+### Verified progress
 
-| Phase | Goal | Status |
-|---|---|---|
-| Step A | Architecture, inspection, and documentation | PASS |
-| Step B | TypeScript scaffold and core policy interfaces | HOLD — successful CI audit; artifact review and remaining acceptance evidence pending |
-| Step C | Mobile dashboard with deterministic demo data | NOT STARTED — requires Step B acceptance and explicit human authorization |
-| Step D | Non-deploying CI and security workflows | PLANNED — requires prior phase approval |
+- **Step A — PASS (previously recorded):** foundational repository and project documentation exists.
+- **Step B — IMPLEMENTED FOUNDATION / FINAL ACCEPTANCE HOLD:** TypeScript core, permission engine, approval primitives, repository-target validation, audit sanitization, worker policy helpers, and focused tests exist.
+- **Permission Engine Milestone 1 — CI PASS:** [Actions run 42457495022](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42457495022) completed successfully on exact commit `e9b350263590eb4704e98bd4ac5c15a0944fe166`; locked install, permission tests, and strict TypeScript check all completed successfully.
+- **Step B.1 code-quality — PASS on historical exact SHA:** [Actions run 42224181429](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42224181429) records clean install, lint, format check, 23 passing tests, and TypeScript on `995c695dbe32e0bdc89efc60b1aea4a65fb6e9a7`. These checks have not been re-run on the 2026-11-10 HEAD.
+- **OpenSpec — research only:** read-only assessment completed; no dependency, adoption, or integration.
 
-The current status is evidence-based and may change only after review. See [ROADMAP.md](ROADMAP.md) and the [2026-11-05 status report](reports/2026-11-05-repository-and-portfolio-status.md) for phase scope and exit criteria.
+### Current gates
+
+| Area | Status |
+|---|---|
+| Step A | PASS — previously recorded |
+| Step B core foundation | IMPLEMENTED; final acceptance HOLD |
+| Permission Engine Milestone 1 CI | PASS on exact current audit HEAD |
+| Trusted actor identity binding | NOT VERIFIED |
+| OS-10.2 review | CONDITIONAL PASS; pilot BLOCKED |
+| OS-10.3 identity-boundary design | NEXT REQUIRED GATE |
+| Durable tamper-evident audit | NOT COMPLETE |
+| Platform-enforced worker isolation | NOT COMPLETE |
+| Canonical artifact manifest and SHA-bound CI provenance | NOT COMPLETE |
+| Release-SHA invalidation and mandatory conflict handling | NOT COMPLETE |
+| Step C dashboard | BLOCKED pending Step B acceptance and explicit authorization |
+| GitHub App privileged integration | NOT AUTHORIZED |
+| Merge / deployment / pilot | NOT AUTHORIZED |
+
+GitHub currently reports `protected: false` for the listed branches. Do not assume that a green feature-branch workflow protects `main`.
+
+See the [2026-11-10 repository status and remaining-gates report](reports/2026-11-10-repository-status-and-remaining-gates.md) for exact evidence, security limitations, and the ordered remaining instructions. The [roadmap](ROADMAP.md) retains the phase gates.
 
 ## Non-negotiable safety and delivery rules
 
