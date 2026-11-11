@@ -1,0 +1,46 @@
+name: OS-10.3 Zero-Budget Assurance
+
+on:
+  push:
+    branches:
+      - security/os-10.3-zero-budget-assurance
+  pull_request:
+    paths:
+      - "packages/core/src/security/**"
+      - "packages/core/tests/**"
+      - "docs/security/OS-10.3-zero-budget-assurance.md"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - ".github/workflows/os-10.3-zero-budget.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: os-10-3-assurance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Free reproducible security characterization
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out pinned branch source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run complete Vitest suite
+        run: npm test
+
+      - name: Run strict TypeScript verification
+        run: npm run typecheck
