@@ -34,9 +34,6 @@ export interface Auth0VerifierOptions {
   readonly audience: string;
   /** Explicit allow-list of AIOS Auth0 application client IDs. */
   readonly allowedClientIds: readonly string[];
-  /** Injectable only for tests; production must use the platform fetch. */
-  readonly fetcher?: typeof fetch;
-  readonly now?: () => number;
 }
 
 const MAX_TOKEN_LENGTH = 16_384;
@@ -65,8 +62,6 @@ function decodeJsonSegment<T>(segment: string): T {
  * only the resulting permissions claim is trusted for approval authorization.
  */
 export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
-  private readonly fetcher: typeof fetch;
-  private readonly now: () => number;
   private readonly jwksUrl: string;
 
   public constructor(private readonly options: Auth0VerifierOptions) {
@@ -80,8 +75,6 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
     ) {
       throw new TypeError("Invalid Auth0 verifier configuration.");
     }
-    this.fetcher = options.fetcher ?? fetch;
-    this.now = options.now ?? (() => Date.now());
     this.jwksUrl = new URL(".well-known/jwks.json", options.issuer).toString();
   }
 
@@ -134,7 +127,7 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
         return null;
       }
 
-      const nowSeconds = Math.floor(this.now() / 1000);
+      const nowSeconds = Math.floor(Date.now() / 1000);
       if (
         claims.exp <= nowSeconds - CLOCK_TOLERANCE_SECONDS ||
         claims.iat > nowSeconds + CLOCK_TOLERANCE_SECONDS ||
@@ -154,7 +147,7 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
         return null;
       }
 
-      const jwksResponse = await this.fetcher(this.jwksUrl, {
+      const jwksResponse = await fetch(this.jwksUrl, {
         method: "GET",
         headers: { accept: "application/json" },
         redirect: "error",
