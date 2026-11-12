@@ -39,14 +39,20 @@ export interface Auth0VerifierOptions {
 const MAX_TOKEN_LENGTH = 16_384;
 const CLOCK_TOLERANCE_SECONDS = 60;
 
-function decodeBase64Url(value: string): Uint8Array {
+function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> {
   if (!/^[A-Za-z0-9_-]+$/.test(value)) {
     throw new Error("Malformed base64url segment.");
   }
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
   const binary = atob(padded);
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  // Allocate a plain ArrayBuffer (not SharedArrayBuffer/ArrayBufferLike) so
+  // the result satisfies WebCrypto's BufferSource parameter type.
+  const bytes = new Uint8Array(new ArrayBuffer(binary.length));
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
 }
 
 function decodeJsonSegment<T>(segment: string): T {
