@@ -57,10 +57,6 @@ function decodeJsonSegment<T>(segment: string): T {
   return JSON.parse(decoded) as T;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 /**
  * Auth0 RS256 access-token verifier for a server-only AIOS trust boundary.
  *
