@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { Auth0AccessTokenVerifier } from "../src/security/auth0-access-token-verifier.js";
 
 const issuer = "https://aios-example.us.auth0.com/";
@@ -41,20 +41,17 @@ async function token(
 }
 
 function verifier(): Auth0AccessTokenVerifier {
-  return new Auth0AccessTokenVerifier({
-    issuer,
-    audience,
-    allowedClientIds: [clientId],
-    now: () => now,
-    fetcher: async () =>
-      new Response(JSON.stringify({ keys: [{ ...publicJwk, kid: "key-1", use: "sig", alg: "RS256" }] }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
-  });
+  vi.stubGlobal("fetch", vi.fn(async () =>
+    new Response(JSON.stringify({ keys: [{ ...publicJwk, kid: "key-1", use: "sig", alg: "RS256" }] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  ));
+  return new Auth0AccessTokenVerifier({ issuer, audience, allowedClientIds: [clientId] });
 }
 
 beforeAll(async () => {
+  vi.spyOn(Date, "now").mockReturnValue(now);
   const pair = await crypto.subtle.generateKey(
     { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
     true,
@@ -63,6 +60,9 @@ beforeAll(async () => {
   privateKey = pair.privateKey;
   publicJwk = await crypto.subtle.exportKey("jwk", pair.publicKey);
 });
+
+afterEach(() => vi.unstubAllGlobals());
+afterAll(() => vi.restoreAllMocks());
 
 describe("Auth0 access token verifier", () => {
   it("accepts a valid RS256 token and returns only verified identity claims", async () => {
@@ -99,14 +99,10 @@ describe("Auth0 access token verifier", () => {
   it("rejects malformed credentials and provider failures", async () => {
     expect(await verifier().verifyCredential({ sub: "auth0|fake" })).toBeNull();
     expect(await verifier().verifyCredential("not.a.jwt.with.extra")).toBeNull();
-    const failing = new Auth0AccessTokenVerifier({
-      issuer,
-      audience,
-      allowedClientIds: [clientId],
-      now: () => now,
-      fetcher: async () => { throw new Error("network failure"); },
-    });
-    expect(await failing.verifyCredential(await token())).toBeNull();
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("network failure"); }));
+    expect(await new Auth0AccessTokenVerifier({
+      issuer, audience, allowedClientIds: [clientId],
+    }).verifyCredential(await token())).toBeNull();
   });
 
   it("requires secure, explicit verifier configuration", () => {
