@@ -7,7 +7,8 @@ on:
   pull_request:
     paths:
       - "packages/core/src/permissions/**"
-      - "packages/core/tests/permissions/**"
+      - "packages/core/src/security/**"
+      - "packages/core/tests/**"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
