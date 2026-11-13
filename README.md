@@ -62,14 +62,14 @@ This is the intended architecture, not a claim that every component is already o
 
 ## Current project status
 
-**Latest live audit: 2026-11-13.** The working branch `feat/projects-registry` is at `8d7adef77f20702655508cfa46ce26ac051e8655`; `main` remains at `e030750f66120b15829eb1f39504370efe5cba1c`. The feature branch is 72 commits ahead and 0 behind, with `main` as its merge base. The latest exact-HEAD CI run is Permission Engine Milestone 1 run [42739186521](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42739186521).
+**Latest live audit: 2026-11-13.** The latest verified code commit is `b60d4a97d66eb7b0807fd0c836066245419fe598`; subsequent monitor commits are documentation-only. `main` remains at `e030750f66120b15829eb1f39504370efe5cba1c`. After the documentation-only updates, the feature branch is 75 commits ahead and 0 behind, with `main` as its merge base. The latest completed code verification is Permission Engine Milestone 1 run [43371254358](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/43371254358).
 
 ### Verified progress
 
 - **Step A — PASS (previously recorded):** foundational repository and project documentation exists.
 - **Step B — IMPLEMENTED FOUNDATION / FINAL ACCEPTANCE HOLD:** TypeScript core, permission engine, approval primitives, repository-target validation, audit sanitization, worker policy helpers, and focused tests exist.
 - **Step B core audit — PASS on exact historical SHA:** [Actions run 42457224191](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42457224191) has an inspected artifact for `a20f9e69732813f7a0089c2852260e7b0735ba24`: committed-lockfile install exit 0, 1 Vitest file / 23 passed / 0 failed, and TypeScript exit 0. Its recorded baseline is `e030750f66120b15829eb1f39504370efe5cba1c`.
-- **Permission Engine Milestone 1 — latest exact-HEAD CI PASS:** [Actions run 42739186521](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42739186521) completed successfully on `8d7adef77f20702655508cfa46ce26ac051e8655`; `npm ci`, 4 Vitest files / 58 passed / 0 failed, and the TypeScript step succeeded. The install log reported 13 vulnerabilities (11 moderate, 2 critical); affected packages were not identified in the captured log.
+- **Permission Engine Milestone 1 — latest code CI PASS:** [Actions run 43371254358](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/43371254358) completed successfully on code commit `b60d4a97d66eb7b0807fd0c836066245419fe598`; `npm ci`, 4 Vitest files / 58 passed / 0 failed, and the TypeScript step succeeded. The install log reported 13 vulnerabilities (11 moderate, 2 critical); affected packages were not identified in the captured log. Subsequent monitor commits changed documentation only.
 - **Step B.1 code-quality — HOLD:** the historical successful [run 42224181429](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42224181429) remains valid on `995c695dbe32e0bdc89efc60b1aea4a65fb6e9a7`. A later [run 42457224206](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42457224206) failed ESLint on `a20f9e69732813f7a0089c2852260e7b0735ba24`; Prettier, Vitest, and TypeScript were skipped. No later Step B.1 run on current HEAD was found.
 - **OpenSpec — research only:** read-only assessment completed; no dependency, adoption, or integration.
 
@@ -81,7 +81,7 @@ This is the intended architecture, not a claim that every component is already o
 | Step B core foundation | IMPLEMENTED; final acceptance HOLD |
 | Step B core audit | PASS on exact SHA `a20f9e6...`; not rerun on current HEAD |
 | Step B.1 quality | HOLD — latest observed run failed ESLint; no later run on current HEAD |
-| Permission Engine Milestone 1 CI | PASS on exact current HEAD `8d7adef...` |
+| Permission Engine Milestone 1 CI | PASS on code commit `b60d4a9...`; later monitor changes are documentation-only |
 | Trusted actor identity binding | NOT VERIFIED |
 | OS-10.2 review | CONDITIONAL PASS; pilot BLOCKED |
 | OS-10.3 identity-boundary design | NEXT REQUIRED GATE |
