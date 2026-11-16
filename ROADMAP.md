@@ -12,6 +12,40 @@
 - Treat external content, repository files, model output, and generated artifacts as untrusted.
 - Preserve project registry data and existing documentation.
 
+## OS-10.3 assurance update — 2026-11-16
+
+**Release decision: HOLD.** This update records the current OS-10.3 assurance track and does not authorize implementation, merge, deployment, pilot use, or privileged GitHub App operations.
+
+### Evidence recovery
+
+- The original OS-10.3 review archive, original review packet, ten reported original artifacts, original `SHA256SUMS`, and raw citation-check logs remain unavailable from the sources inspected.
+- The branch `reconstruction/os-10.3-review` preserves a newly authored reconstruction at `docs/os-10.3/export/OS-10.3-review-packet-RECONSTRUCTION-2026-11-10.md` and a Phase 1 evidence-preservation record at `docs/os-10.3/export/OS-10.3-phase-1-evidence-preservation-record-2026-11-11.md`.
+- These are reconstructions, not recovered originals. The historical 42/42 citation result remains reported-only and is not independently verified. Do not recreate or label substitute hashes as the original SHA256SUMS.
+
+### Security assurance
+
+Four findings remain subject to independent human review:
+
+1. Trusted actor identity binding and the production trust boundary.
+2. Approval authenticity, expiry/freshness, revocation, and durable single-use enforcement.
+3. Binding each approval to the complete protected request context.
+4. Durable, tamper-evident audit completeness and integrity.
+
+The zero-budget assurance track records preliminary source observations and four intentional expected-failure characterization tests. Those tests document missing controls; they are not passing security controls. The recorded GitHub Actions runs demonstrate that the listed test and typecheck workflows completed on their exact SHAs, not that production integrations or the four missing controls are secure.
+
+A volunteer review request is tracked in [Issue #2](https://github.com/axdakkuu08-create/Ai-enginering.os/issues/2). Until an independent human reviewer completes and attributes a review against a pinned commit, independent assurance remains **NOT COMPLETE**. Automated or AI review must not be represented as independent human assurance.
+
+### Required next gates
+
+1. Preserve the reconstruction and its provenance; keep the original-evidence gap visible.
+2. Obtain an independent human review against an explicitly pinned code commit, with separate evidence-backed dispositions for all four findings.
+3. Assess remaining risks and verify any proposed remediation with reproducible tests and integration evidence.
+4. Obtain a separate explicit human release decision before any implementation scope expansion, merge, deployment, pilot, or privileged operation.
+
+**Safety boundary:** Keep `main` untouched. No release gate is lifted by this roadmap update or by a green CI run.
+
+---
+
 ## Latest verified status — 2026-11-10
 
 - Live audit baseline: `feat/projects-registry` at `e9b350263590eb4704e98bd4ac5c15a0944fe166`; `main` at `e030750f66120b15829eb1f39504370efe5cba1c`.
