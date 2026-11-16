@@ -4,6 +4,42 @@ AI Engineering OS is an approval-gated engineering workspace for coordinating so
 
 The goal is not to give an AI agent unrestricted control of a repository. The goal is to make AI-assisted development more organized, safer, reproducible, and easier for a human to supervise.
 
+
+## Product identity
+
+**Positioning:** A zero-trust operating system for AI-assisted software engineering.
+
+AI Engineering OS is intended to be the control and visibility layer between people, software repositories, AI agents, engineering workflows, and release decisions. It coordinates work without granting agents unrestricted authority over the projects they assist.
+
+The product is designed around five outcomes:
+
+- **Visibility:** understand project, repository, branch, task, pull-request, and verification status from one workspace.
+- **Controlled autonomy:** let agents perform bounded, explicitly permitted work while keeping privileged operations behind human authorization.
+- **Verifiability:** connect every reported result to the exact commit, command, test output, and review evidence that supports it.
+- **Traceability:** preserve an auditable history of requests, policy decisions, changes, checks, and approvals.
+- **Project isolation:** manage multiple independent repositories without silently combining their code, credentials, or release processes.
+
+## Professional experience direction
+
+The intended interface is a **Dark Enterprise Engineering Console**: an accessible, mobile-friendly workspace with an obsidian/graphite foundation, restrained emerald accents, clear typography, compact information hierarchy, and explicit status labels. The visual design should prioritize operational clarity over decoration.
+
+Planned navigation areas are Overview, Projects, AI Agents, Permissions, Verification, Audit & Evidence, and Approvals. These are product-design intentions, not a claim that the screens or integrations are already implemented.
+
+## Operating model
+
+The system should distinguish clearly between these authority levels:
+
+| Level | Meaning | Default posture |
+|---|---|---|
+| Observe | Read repository and workflow information | Least-privilege read access |
+| Inspect | Analyze code, configuration, and evidence | Read-only |
+| Verify | Run explicitly permitted checks | Scoped and recorded |
+| Propose | Prepare a change or protected-action request | No implicit execution authority |
+| Write | Modify an approved feature branch or pull request | Explicitly scoped permission |
+| Merge / deploy | Perform release-affecting operations | Privileged; explicit human approval required |
+
+An AI recommendation, successful test, green CI check, or generated report is not itself authorization to merge or deploy.
+
 ## Why this project exists
 
 Software work across multiple repositories can become difficult to track. Plans, code changes, test results, pull requests, and release decisions often live in separate tools. AI Engineering OS is intended to provide one control and visibility layer while keeping each underlying project isolated.
@@ -62,37 +98,20 @@ This is the intended architecture, not a claim that every component is already o
 
 ## Current project status
 
-**Latest live audit: 2026-11-10.** The working branch is `feat/projects-registry`, inspected at `e9b350263590eb4704e98bd4ac5c15a0944fe166` before the documentation update. `main` remains at `e030750f66120b15829eb1f39504370efe5cba1c`. The feature branch is 69 commits ahead and 0 behind. No pull requests were returned by the live repository query.
+**Latest documented assurance decision: 2026-11-16 — HOLD.** The current assurance update is recorded in [ROADMAP.md](ROADMAP.md) on branch `security/os-10.3-zero-budget-assurance`. This README describes the product direction; the roadmap is the source of truth for phase gates and the latest assurance position.
 
-### Verified progress
+### OS-10.3 assurance position
 
-- **Step A — PASS (previously recorded):** foundational repository and project documentation exists.
-- **Step B — IMPLEMENTED FOUNDATION / FINAL ACCEPTANCE HOLD:** TypeScript core, permission engine, approval primitives, repository-target validation, audit sanitization, worker policy helpers, and focused tests exist.
-- **Permission Engine Milestone 1 — CI PASS:** [Actions run 42457495022](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42457495022) completed successfully on exact commit `e9b350263590eb4704e98bd4ac5c15a0944fe166`; locked install, permission tests, and strict TypeScript check all completed successfully.
-- **Step B.1 code-quality — PASS on historical exact SHA:** [Actions run 42224181429](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42224181429) records clean install, lint, format check, 23 passing tests, and TypeScript on `995c695dbe32e0bdc89efc60b1aea4a65fb6e9a7`. These checks have not been re-run on the 2026-11-10 HEAD.
-- **OpenSpec — research only:** read-only assessment completed; no dependency, adoption, or integration.
+- The release decision remains **HOLD**.
+- Reconstructed review documents exist under `docs/os-10.3/export/`, but they are not recovered originals.
+- The original review archive, original ten-artifact set, original `SHA256SUMS`, and raw citation-check logs have not been fully recovered.
+- Four security findings remain subject to independent review: trusted actor identity binding; approval authenticity and freshness; approval-to-request context binding; and durable, tamper-evident audit completeness.
+- Characterization tests that intentionally demonstrate missing controls are not passing security controls.
+- Independent human assurance is not complete. Green CI or a documentation update does not lift the release gate.
 
-### Current gates
+### Delivery boundary
 
-| Area | Status |
-|---|---|
-| Step A | PASS — previously recorded |
-| Step B core foundation | IMPLEMENTED; final acceptance HOLD |
-| Permission Engine Milestone 1 CI | PASS on exact current audit HEAD |
-| Trusted actor identity binding | NOT VERIFIED |
-| OS-10.2 review | CONDITIONAL PASS; pilot BLOCKED |
-| OS-10.3 identity-boundary design | NEXT REQUIRED GATE |
-| Durable tamper-evident audit | NOT COMPLETE |
-| Platform-enforced worker isolation | NOT COMPLETE |
-| Canonical artifact manifest and SHA-bound CI provenance | NOT COMPLETE |
-| Release-SHA invalidation and mandatory conflict handling | NOT COMPLETE |
-| Step C dashboard | BLOCKED pending Step B acceptance and explicit authorization |
-| GitHub App privileged integration | NOT AUTHORIZED |
-| Merge / deployment / pilot | NOT AUTHORIZED |
-
-GitHub currently reports `protected: false` for the listed branches. Do not assume that a green feature-branch workflow protects `main`.
-
-See the [2026-11-10 repository status and remaining-gates report](reports/2026-11-10-repository-status-and-remaining-gates.md) for exact evidence, security limitations, and the ordered remaining instructions. The [roadmap](ROADMAP.md) retains the phase gates.
+No release, pilot, merge, deployment, or privileged GitHub App operation is authorized by this status summary. Keep `main` untouched. Consult [ROADMAP.md](ROADMAP.md) for the current ordered gates and evidence requirements before proposing further work.
 
 ## Non-negotiable safety and delivery rules
 
