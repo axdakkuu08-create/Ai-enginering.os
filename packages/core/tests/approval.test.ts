@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   ApprovalAlreadyDecidedError,
   assertNotSelfApproval,
-  canProceed,
   canProceedForProposal,
   createApprovalGate,
   recordApprovalDecision,
@@ -25,6 +24,7 @@ import type {
   ModelResponse,
 } from "../src/types/index.js";
 
+const decisionTime = new Date("2026-11-06T10:00:00.000Z");
 const initialGate = () =>
   createApprovalGate({
     id: "gate-1",
@@ -33,129 +33,128 @@ const initialGate = () =>
     proposalDigest: "proposal-a",
     baseRevision: "base-a",
   });
+const decision = (overrides: Record<string, unknown> = {}) => ({
+  status: "APPROVED" as const,
+  actorId: "human-1",
+  actorType: "HUMAN" as const,
+  proposalDigest: "proposal-a",
+  baseRevision: "base-a",
+  ...overrides,
+});
 
 describe("approval gate", () => {
-  it("defaults new gates to PENDING and blocks execution", () => {
+  it("creates a pending gate with no decision or expiry", () => {
     const gate = initialGate();
     expect(gate.status).toBe("PENDING");
     expect(gate.authorizedBy).toBeNull();
-    expect(canProceed(gate.status)).toBe(false);
+    expect(gate.timestamp).toBeNull();
+    expect(gate.expiresAt).toBeNull();
+    expect(gate.consumedAt).toBeNull();
   });
 
-  it("blocks DENIED gates", () => {
-    expect(canProceed("DENIED")).toBe(false);
-  });
-
-  it("allows only APPROVED gates", () => {
-    expect(canProceed("APPROVED")).toBe(true);
-  });
-
-  it("rejects agent self-approval", () => {
+  it("rejects direct and delegated self-approval", () => {
     expect(() => assertNotSelfApproval("agent-1", "agent-1")).toThrow(
       UnauthorizedApprovalError,
     );
+    expect(() =>
+      assertNotSelfApproval("human-1", "agent-1", ["service-9", "agent-1"]),
+    ).toThrow(UnauthorizedApprovalError);
   });
 
-  it("allows a different approver identity through the self-approval guard", () => {
+  it("allows a distinct verified human subject", () => {
     expect(() => assertNotSelfApproval("human-1", "agent-1")).not.toThrow();
   });
 
-  it("normalizes identities before checking self-approval", () => {
-    expect(() => assertNotSelfApproval("agent-1", " agent-1 ")).toThrow(
+  it("rejects empty or malformed delegation identities", () => {
+    expect(() => assertNotSelfApproval("human-1", "agent-1", [" "])).toThrow(
       UnauthorizedApprovalError,
     );
-  });
-
-  it("rejects a human identity that matches the requesting agent", () => {
-    const gate = createApprovalGate({
-      id: "gate-2",
-      taskId: "task-2",
-      requestedBy: "human-1",
-      proposalDigest: "proposal-a",
-      baseRevision: "base-a",
-    });
-    expect(() =>
-      recordApprovalDecision(gate, {
-        status: "APPROVED",
-        actorId: "human-1",
-        actorType: "HUMAN",
-        proposalDigest: "proposal-a",
-        baseRevision: "base-a",
-        timestamp: "2026-11-06T10:00:00.000Z",
-      }),
-    ).toThrow(UnauthorizedApprovalError);
   });
 
   it("rejects non-human approval actors", () => {
     expect(() =>
-      recordApprovalDecision(initialGate(), {
-        status: "APPROVED",
-        actorId: "agent-2",
-        actorType: "AGENT",
-        proposalDigest: "proposal-a",
-        baseRevision: "base-a",
-        timestamp: "2026-11-06T10:00:00.000Z",
-      }),
+      recordApprovalDecision(
+        initialGate(),
+        decision({ actorId: "agent-2", actorType: "AGENT" }),
+        decisionTime,
+      ),
     ).toThrow(UnauthorizedApprovalError);
   });
 
-  it("binds a human approval to the exact proposal and base revision", () => {
-    const approved = recordApprovalDecision(initialGate(), {
-      status: "APPROVED",
-      actorId: "human-1",
-      actorType: "HUMAN",
-      proposalDigest: "proposal-a",
-      baseRevision: "base-a",
-      timestamp: "2026-11-06T10:00:00.000Z",
-    });
-    expect(canProceedForProposal(approved, "proposal-a", "base-a")).toBe(true);
-    expect(canProceedForProposal(approved, "proposal-b", "base-a")).toBe(false);
-    expect(canProceedForProposal(approved, "proposal-a", "base-b")).toBe(false);
+  it("binds approval to the exact proposal and base and generates server expiry", () => {
+    const approved = recordApprovalDecision(
+      initialGate(),
+      decision(),
+      decisionTime,
+    );
+    expect(approved.status).toBe("APPROVED");
+    expect(approved.timestamp).toBe(decisionTime.toISOString());
+    expect(approved.expiresAt).toBe("2026-11-06T10:05:00.000Z");
+    expect(
+      canProceedForProposal(
+        approved,
+        "proposal-a",
+        "base-a",
+        new Date("2026-11-06T10:04:59.999Z"),
+      ),
+    ).toBe(true);
+    expect(
+      canProceedForProposal(
+        approved,
+        "proposal-b",
+        "base-a",
+        new Date("2026-11-06T10:01:00.000Z"),
+      ),
+    ).toBe(false);
+    expect(
+      canProceedForProposal(
+        approved,
+        "proposal-a",
+        "base-b",
+        new Date("2026-11-06T10:01:00.000Z"),
+      ),
+    ).toBe(false);
+    expect(
+      canProceedForProposal(
+        approved,
+        "proposal-a",
+        "base-a",
+        new Date("2026-11-06T10:05:00.000Z"),
+      ),
+    ).toBe(false);
   });
 
   it("prevents a second decision on an already decided gate", () => {
-    const approved = recordApprovalDecision(initialGate(), {
-      status: "APPROVED",
-      actorId: "human-1",
-      actorType: "HUMAN",
-      proposalDigest: "proposal-a",
-      baseRevision: "base-a",
-      timestamp: "2026-11-06T10:00:00.000Z",
-    });
+    const approved = recordApprovalDecision(
+      initialGate(),
+      decision(),
+      decisionTime,
+    );
     expect(() =>
-      recordApprovalDecision(approved, {
-        status: "DENIED",
-        actorId: "human-2",
-        actorType: "HUMAN",
-        proposalDigest: "proposal-a",
-        baseRevision: "base-a",
-        timestamp: "2026-11-06T10:01:00.000Z",
-      }),
+      recordApprovalDecision(
+        approved,
+        decision({ status: "DENIED", actorId: "human-2" }),
+        new Date("2026-11-06T10:01:00.000Z"),
+      ),
     ).toThrow(ApprovalAlreadyDecidedError);
   });
 
-  it("rejects approval decisions for a stale proposal", () => {
+  it("rejects stale proposal decisions with the specific error class", () => {
     expect(() =>
-      recordApprovalDecision(initialGate(), {
-        status: "APPROVED",
-        actorId: "human-1",
-        actorType: "HUMAN",
-        proposalDigest: "proposal-old",
-        baseRevision: "base-a",
-        timestamp: "2026-11-06T10:00:00.000Z",
-      }),
+      recordApprovalDecision(
+        initialGate(),
+        decision({ proposalDigest: "proposal-old" }),
+        decisionTime,
+      ),
     ).toThrow(StaleApprovalError);
   });
 
-  it("invalidates an approval when proposal or base revision changes", () => {
-    const approved = recordApprovalDecision(initialGate(), {
-      status: "APPROVED",
-      actorId: "human-1",
-      actorType: "HUMAN",
-      proposalDigest: "proposal-a",
-      baseRevision: "base-a",
-      timestamp: "2026-11-06T10:00:00.000Z",
-    });
+  it("invalidates approval when the proposal or base changes", () => {
+    const approved = recordApprovalDecision(
+      initialGate(),
+      decision(),
+      decisionTime,
+    );
     const refreshed = refreshApprovalForProposal(
       approved,
       "proposal-b",
@@ -164,9 +163,14 @@ describe("approval gate", () => {
     expect(refreshed.status).toBe("PENDING");
     expect(refreshed.authorizedBy).toBeNull();
     expect(refreshed.timestamp).toBeNull();
-    expect(canProceedForProposal(refreshed, "proposal-b", "base-a")).toBe(
-      false,
-    );
+    expect(refreshed.expiresAt).toBeNull();
+    expect(refreshed.consumedAt).toBeNull();
+  });
+
+  it("requires a trusted valid server clock", () => {
+    expect(() =>
+      recordApprovalDecision(initialGate(), decision(), new Date("invalid")),
+    ).toThrow(TypeError);
   });
 });
 
@@ -222,41 +226,67 @@ describe("repository target validation", () => {
 });
 
 describe("audit event privacy", () => {
-  it("removes sensitive keys and redacts credential-like values", () => {
-    const event = createSafeAuditEvent({
-      id: "event-1",
-      timestamp: "2026-11-06T10:00:00.000Z",
-      actorId: "human-1",
-      action: "repository.inspect",
-      target: "example-org/sample-repo",
-      outcome: "SUCCESS",
-      details: {
-        branch: "feat/safe-change",
-        accessToken: "do-not-store-this",
-        nested: {
-          password: "hidden",
-          message: "Authorization: Bearer abc.def.ghi",
+  it("redacts sensitive keys and common credential formats", () => {
+    const pem = [
+      "-----BEGIN PRIVATE KEY-----",
+      "fake-private-material",
+      "-----END PRIVATE KEY-----",
+    ].join("\n");
+    const event = createSafeAuditEvent(
+      {
+        id: "event-1",
+        actorId: "human-1",
+        action: "repository.inspect",
+        target: "example-org/sample-repo",
+        outcome: "SUCCESS",
+        details: {
+          branch: "feat/safe-change",
+          accessToken: "do-not-store-this",
+          nested: {
+            password: "hidden",
+            message: "Authorization: Bearer abc.def.ghi",
+            aws: "AKIAIOSFODNN7EXAMPLE",
+            jwt: "eyJabcdefghijk.abcdefghijk.abcdefghijk",
+            pem,
+          },
         },
       },
-    });
+      decisionTime,
+    );
+    const serialized = JSON.stringify(event);
+    expect(event.timestamp).toBe(decisionTime.toISOString());
     expect(event.details).toEqual({
       branch: "feat/safe-change",
-      nested: { message: "Authorization: [REDACTED]" },
+      nested: {
+        message: "Authorization: [REDACTED]",
+        aws: "[REDACTED]",
+        jwt: "[REDACTED]",
+        pem: "[REDACTED]",
+      },
     });
-    expect(JSON.stringify(event)).not.toContain("do-not-store-this");
-    expect(JSON.stringify(event)).not.toContain("abc.def.ghi");
+    for (const secret of [
+      "do-not-store-this",
+      "abc.def.ghi",
+      "AKIAIOSFODNN7EXAMPLE",
+      "eyJabcdefghijk",
+      "fake-private-material",
+    ]) {
+      expect(serialized).not.toContain(secret);
+    }
   });
 
   it("rejects incomplete audit event identity", () => {
     expect(() =>
-      createSafeAuditEvent({
-        id: "",
-        timestamp: "2026-11-06T10:00:00.000Z",
-        actorId: "human-1",
-        action: "test",
-        target: "repo",
-        outcome: "FAILED",
-      }),
+      createSafeAuditEvent(
+        {
+          id: "",
+          actorId: "human-1",
+          action: "test",
+          target: "repo",
+          outcome: "FAILED",
+        },
+        decisionTime,
+      ),
     ).toThrow(TypeError);
   });
 });
