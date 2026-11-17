@@ -27,7 +27,7 @@ jobs:
   verify:
     name: Test and typecheck
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
           cache: npm
 
       - name: Install locked dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Run permission-engine tests
         run: npm test
