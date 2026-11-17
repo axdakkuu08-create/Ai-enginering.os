@@ -1,5 +1,6 @@
-import type { ApprovalGate, ApprovalStatus } from "../types/index.js";
+import type { ApprovalGate } from "../types/index.js";
 import {
+  APPROVAL_TTL_MS,
   ApprovalAlreadyDecidedError,
   canProceedForProposal,
   StaleApprovalError,
@@ -15,7 +16,6 @@ export class ApprovalNotFoundError extends Error {
 
 export interface StoredApprovalGate {
   readonly gate: ApprovalGate;
-  /** Store-maintained version, incremented on every successful write. */
   readonly version: number;
 }
 
@@ -23,31 +23,76 @@ export interface ApprovalCompareAndSet {
   readonly gateId: string;
   readonly expectedVersion: number;
   readonly expectedStatus: "PENDING" | "APPROVED";
+  readonly expectedAuthorizedBy: string | null;
+  readonly expectedTimestamp: string | null;
+  readonly expectedExpiresAt: string | null;
   readonly proposalDigest: string;
   readonly baseRevision: string;
   readonly next: ApprovalGate;
   readonly serverNow: Date;
 }
 
-/**
- * Production adapters must implement compareAndSet as one atomic database
- * conditional write. A read followed by an unconditional write is not valid.
- */
+/** A production adapter must implement this as one atomic conditional write. */
 export interface ApprovalStore {
   create(gate: ApprovalGate): Promise<void>;
   load(gateId: string): Promise<StoredApprovalGate | null>;
   compareAndSet(input: ApprovalCompareAndSet): Promise<boolean>;
 }
 
-/** Server-side time source. Callers cannot supply decision timestamps. */
 export interface ApprovalClock {
   now(): Date;
 }
 
-/**
- * Test/reference implementation only. It is process-local and not durable.
- * Production must use PostgresApprovalStore or an equivalent durable CAS store.
- */
+/** Validates legal state transitions and server-generated timestamps/expiry. */
+export function isValidApprovalCompareAndSet(
+  input: ApprovalCompareAndSet,
+): boolean {
+  if (
+    !Number.isSafeInteger(input.expectedVersion) ||
+    input.expectedVersion < 1 ||
+    !(input.serverNow instanceof Date) ||
+    !Number.isFinite(input.serverNow.getTime()) ||
+    input.next.id !== input.gateId ||
+    input.next.proposalDigest !== input.proposalDigest ||
+    input.next.baseRevision !== input.baseRevision
+  ) {
+    return false;
+  }
+
+  const now = input.serverNow.toISOString();
+  if (input.expectedStatus === "PENDING") {
+    const expiresAt = new Date(
+      input.serverNow.getTime() + APPROVAL_TTL_MS,
+    ).toISOString();
+    return (
+      input.expectedAuthorizedBy === null &&
+      input.expectedTimestamp === null &&
+      input.expectedExpiresAt === null &&
+      (input.next.status === "APPROVED" || input.next.status === "DENIED") &&
+      typeof input.next.authorizedBy === "string" &&
+      input.next.authorizedBy.trim().length > 0 &&
+      input.next.timestamp === now &&
+      input.next.expiresAt === expiresAt &&
+      input.next.consumedAt === null
+    );
+  }
+
+  return (
+    input.expectedStatus === "APPROVED" &&
+    typeof input.expectedAuthorizedBy === "string" &&
+    input.expectedAuthorizedBy.length > 0 &&
+    typeof input.expectedTimestamp === "string" &&
+    typeof input.expectedExpiresAt === "string" &&
+    input.next.status === "CONSUMED" &&
+    input.next.authorizedBy === input.expectedAuthorizedBy &&
+    input.next.timestamp === input.expectedTimestamp &&
+    input.next.expiresAt === input.expectedExpiresAt &&
+    input.next.consumedAt === now &&
+    Date.parse(input.expectedExpiresAt) > input.serverNow.getTime()
+  );
+}
+
+/** Process-local reference implementation for tests only; not durable. */
 export class InMemoryApprovalStore implements ApprovalStore {
   private readonly gates = new Map<string, StoredApprovalGate>();
 
@@ -79,24 +124,12 @@ export class InMemoryApprovalStore implements ApprovalStore {
       !current ||
       current.version !== input.expectedVersion ||
       current.gate.status !== input.expectedStatus ||
+      current.gate.authorizedBy !== input.expectedAuthorizedBy ||
+      current.gate.timestamp !== input.expectedTimestamp ||
+      current.gate.expiresAt !== input.expectedExpiresAt ||
       current.gate.proposalDigest !== input.proposalDigest ||
       current.gate.baseRevision !== input.baseRevision ||
-      input.next.id !== input.gateId
-    ) {
-      return false;
-    }
-
-    const allowedTransition =
-      (input.expectedStatus === "PENDING" &&
-        (input.next.status === "APPROVED" || input.next.status === "DENIED")) ||
-      (input.expectedStatus === "APPROVED" &&
-        input.next.status === "CONSUMED");
-    if (!allowedTransition) return false;
-
-    if (
-      input.expectedStatus === "APPROVED" &&
-      (!current.gate.expiresAt ||
-        Date.parse(current.gate.expiresAt) <= input.serverNow.getTime())
+      !isValidApprovalCompareAndSet(input)
     ) {
       return false;
     }
@@ -109,10 +142,7 @@ export class InMemoryApprovalStore implements ApprovalStore {
   }
 }
 
-/**
- * Atomically consumes a still-fresh approval immediately before the protected
- * action. The same human decision cannot authorize a second action or replay.
- */
+/** Atomically consumes a fresh approval immediately before protected work. */
 export async function consumeApprovalForAction(
   store: ApprovalStore,
   gateId: string,
@@ -145,6 +175,9 @@ export async function consumeApprovalForAction(
     gateId,
     expectedVersion: stored.version,
     expectedStatus: "APPROVED",
+    expectedAuthorizedBy: stored.gate.authorizedBy,
+    expectedTimestamp: stored.gate.timestamp,
+    expectedExpiresAt: stored.gate.expiresAt,
     proposalDigest,
     baseRevision,
     next: consumed,
