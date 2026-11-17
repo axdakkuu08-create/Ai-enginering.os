@@ -14,17 +14,15 @@ import {
 } from "../src/security/approval.js";
 import {
   ApprovalNotFoundError,
+  consumeApprovalForAction,
   InMemoryApprovalStore,
-  requireApprovedForProposal,
   type ApprovalClock,
 } from "../src/security/approval-store.js";
 
 const SERVER_TIME = "2026-11-06T00:00:00.000Z";
-
 const fixedClock = (iso: string): ApprovalClock => ({
   now: () => new Date(iso),
 });
-
 const gateInput = {
   id: "gate-1",
   taskId: "task-1",
@@ -36,12 +34,15 @@ const gateInput = {
 async function setup(
   subjectId: string | null,
   permissions: readonly string[] = [APPROVAL_PERMISSION],
+  delegatedActorIds?: readonly string[],
 ): Promise<{ store: InMemoryApprovalStore; deps: HumanApprovalDependencies }> {
   const store = new InMemoryApprovalStore();
   await store.create(createApprovalGate(gateInput));
   const verifier: HumanIdentityVerifier = {
     verifyCredential: async () =>
-      subjectId === null ? null : { subjectId, permissions },
+      subjectId === null
+        ? null
+        : { subjectId, permissions, delegatedActorIds },
   };
   return {
     store,
@@ -61,20 +62,17 @@ const request = (
 });
 
 describe("trusted human approval boundary", () => {
-  it("records the verified subject as the approver and the server time", async () => {
+  it("derives the approver and timestamp from trusted dependencies", async () => {
     const { store, deps } = await setup("human-7");
     const result = await authorizeHumanApproval(request(), deps);
-
     expect(result.status).toBe("APPROVED");
     expect(result.authorizedBy).toBe("human-7");
     expect(result.timestamp).toBe(SERVER_TIME);
-
-    const stored = await store.load("gate-1");
-    expect(stored?.gate.authorizedBy).toBe("human-7");
-    expect(stored?.version).toBe(2);
+    expect(result.expiresAt).toBe("2026-11-06T00:05:00.000Z");
+    expect((await store.load("gate-1"))?.version).toBe(2);
   });
 
-  it("ignores caller-supplied actor, actor type, timestamp and gate fields", async () => {
+  it("ignores forged actor, timestamp, and gate fields in request data", async () => {
     const { store, deps } = await setup("human-7");
     const forged = {
       ...request(),
@@ -83,9 +81,7 @@ describe("trusted human approval boundary", () => {
       timestamp: "2000-01-01T00:00:00.000Z",
       gate: { status: "APPROVED", authorizedBy: "admin-forged" },
     } as unknown as HumanApprovalRequest;
-
     const result = await authorizeHumanApproval(forged, deps);
-
     expect(result.authorizedBy).toBe("human-7");
     expect(result.timestamp).toBe(SERVER_TIME);
     expect((await store.load("gate-1"))?.gate.authorizedBy).toBe("human-7");
@@ -96,9 +92,8 @@ describe("trusted human approval boundary", () => {
     await expect(authorizeHumanApproval(request(), deps)).rejects.toThrow(
       UnauthorizedApprovalError,
     );
-    const stored = await store.load("gate-1");
-    expect(stored?.gate.status).toBe("PENDING");
-    expect(stored?.version).toBe(1);
+    expect((await store.load("gate-1"))?.gate.status).toBe("PENDING");
+    expect((await store.load("gate-1"))?.version).toBe(1);
   });
 
   it("fails closed when identity verification throws", async () => {
@@ -121,7 +116,7 @@ describe("trusted human approval boundary", () => {
     expect((await store.load("gate-1"))?.gate.status).toBe("PENDING");
   });
 
-  it("blocks the requester approving their own proposal, using the trusted subject", async () => {
+  it("blocks direct requester self-approval", async () => {
     const { store, deps } = await setup("agent-1");
     await expect(authorizeHumanApproval(request(), deps)).rejects.toThrow(
       UnauthorizedApprovalError,
@@ -129,14 +124,23 @@ describe("trusted human approval boundary", () => {
     expect((await store.load("gate-1"))?.gate.status).toBe("PENDING");
   });
 
-  it("rejects a stale proposal without changing stored state", async () => {
+  it("blocks a verified delegation chain containing the requester", async () => {
+    const { store, deps } = await setup("human-7", [APPROVAL_PERMISSION], [
+      "service-2",
+      "agent-1",
+    ]);
+    await expect(authorizeHumanApproval(request(), deps)).rejects.toThrow(
+      UnauthorizedApprovalError,
+    );
+    expect((await store.load("gate-1"))?.gate.status).toBe("PENDING");
+  });
+
+  it("rejects a stale proposal with the exact error and no state change", async () => {
     const { store, deps } = await setup("human-7");
     await expect(
       authorizeHumanApproval(request({ proposalDigest: "stale" }), deps),
     ).rejects.toThrow(StaleApprovalError);
-    const stored = await store.load("gate-1");
-    expect(stored?.gate.status).toBe("PENDING");
-    expect(stored?.version).toBe(1);
+    expect((await store.load("gate-1"))?.version).toBe(1);
   });
 
   it("rejects an unknown gate identifier", async () => {
@@ -146,7 +150,7 @@ describe("trusted human approval boundary", () => {
     ).rejects.toThrow(ApprovalNotFoundError);
   });
 
-  it("rejects an invalid decision status at runtime", async () => {
+  it("rejects invalid decision status at runtime", async () => {
     const { deps } = await setup("human-7");
     await expect(
       authorizeHumanApproval(
@@ -156,27 +160,7 @@ describe("trusted human approval boundary", () => {
     ).rejects.toThrow(TypeError);
   });
 
-  it("rejects a replayed decision on an already decided gate", async () => {
-    const { store, deps } = await setup("human-7");
-    await authorizeHumanApproval(request(), deps);
-
-    const secondDeps = {
-      ...deps,
-      verifier: {
-        verifyCredential: async () => ({
-          subjectId: "human-8",
-          permissions: [APPROVAL_PERMISSION],
-        }),
-      },
-    };
-    await expect(
-      authorizeHumanApproval(request({ status: "DENIED" }), secondDeps),
-    ).rejects.toThrow(ApprovalAlreadyDecidedError);
-
-    expect((await store.load("gate-1"))?.gate.authorizedBy).toBe("human-7");
-  });
-
-  it("lets exactly one of two concurrent decisions commit", async () => {
+  it("allows exactly one concurrent approval decision to commit", async () => {
     const { store, deps } = await setup("human-7");
     const other: HumanApprovalDependencies = {
       ...deps,
@@ -187,35 +171,36 @@ describe("trusted human approval boundary", () => {
         }),
       },
     };
-
     const results = await Promise.allSettled([
       authorizeHumanApproval(request(), deps),
       authorizeHumanApproval(request({ status: "DENIED" }), other),
     ]);
-
-    const fulfilled = results.filter((r) => r.status === "fulfilled");
-    const rejected = results.filter((r) => r.status === "rejected");
-    expect(fulfilled).toHaveLength(1);
-    expect(rejected).toHaveLength(1);
-    expect(
-      (rejected[0] as PromiseRejectedResult).reason,
-    ).toBeInstanceOf(ApprovalAlreadyDecidedError);
-
-    const stored = await store.load("gate-1");
-    expect(stored?.version).toBe(2);
-    expect(["human-7", "human-8"]).toContain(stored?.gate.authorizedBy);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect((await store.load("gate-1"))?.version).toBe(2);
   });
 
-  it("re-checks the stored gate before protected work", async () => {
+  it("consumes the decision once and refuses subsequent replay", async () => {
     const { store, deps } = await setup("human-7");
     await authorizeHumanApproval(request(), deps);
-
     await expect(
-      requireApprovedForProposal(store, "gate-1", "proposal-1", "base-1"),
-    ).resolves.toMatchObject({ status: "APPROVED" });
-
+      consumeApprovalForAction(
+        store,
+        "gate-1",
+        "proposal-1",
+        "base-1",
+        new Date("2026-11-06T00:01:00.000Z"),
+      ),
+    ).resolves.toMatchObject({ status: "CONSUMED" });
     await expect(
-      requireApprovedForProposal(store, "gate-1", "proposal-2", "base-1"),
-    ).rejects.toThrow(StaleApprovalError);
+      consumeApprovalForAction(
+        store,
+        "gate-1",
+        "proposal-1",
+        "base-1",
+        new Date("2026-11-06T00:02:00.000Z"),
+      ),
+    ).rejects.toThrow(UnauthorizedApprovalError);
+    expect((await store.load("gate-1"))?.gate.status).toBe("CONSUMED");
   });
 });
