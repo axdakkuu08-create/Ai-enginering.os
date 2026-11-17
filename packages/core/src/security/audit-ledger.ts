@@ -73,6 +73,13 @@ export async function createAuditLedgerEntry(
   });
 }
 
+export class AuditIntegrityError extends Error {
+  public constructor() {
+    super("The persisted audit ledger failed integrity verification.");
+    this.name = "AuditIntegrityError";
+  }
+}
+
 /** Verifies sequence continuity, linkage, event uniqueness, and every digest. */
 export async function verifyAuditLedger(
   entries: readonly AuditLedgerEntry[],
