@@ -1,4 +1,6 @@
-import type { ApprovalGate, ApprovalStatus } from "../types/index.js";
+import type { ApprovalGate } from "../types/index.js";
+
+export const APPROVAL_TTL_MS = 5 * 60 * 1000;
 
 export class UnauthorizedApprovalError extends Error {
   public constructor(
@@ -11,7 +13,7 @@ export class UnauthorizedApprovalError extends Error {
 
 export class StaleApprovalError extends Error {
   public constructor(
-    message = "Approval does not match the current proposal revision.",
+    message = "Approval does not match the current proposal revision or has expired.",
   ) {
     super(message);
     this.name = "StaleApprovalError";
@@ -33,7 +35,8 @@ export interface ApprovalDecision {
   readonly actorType: "HUMAN" | "AGENT" | "SERVICE";
   readonly proposalDigest: string;
   readonly baseRevision: string;
-  readonly timestamp: string;
+  /** Delegation chain supplied only by the trusted identity verifier. */
+  readonly delegatedActorIds?: readonly string[];
 }
 
 /** New gates are pending and are bound to one exact proposal and base revision. */
@@ -44,9 +47,9 @@ export function createApprovalGate(input: {
   readonly proposalDigest: string;
   readonly baseRevision: string;
 }): ApprovalGate {
-  if (!input.id.trim() || !input.taskId.trim()) {
+  if (!input.id.trim() || !input.taskId.trim() || !input.requestedBy.trim()) {
     throw new TypeError(
-      "Approval gate and task identifiers must be non-empty.",
+      "Approval gate, task, and requester identifiers must be non-empty.",
     );
   }
   if (!input.proposalDigest.trim() || !input.baseRevision.trim()) {
@@ -60,38 +63,54 @@ export function createApprovalGate(input: {
     status: "PENDING" as const,
     authorizedBy: null,
     timestamp: null,
+    expiresAt: null,
+    consumedAt: null,
     proposalDigest: input.proposalDigest,
     baseRevision: input.baseRevision,
   });
 }
 
-/** Only an explicitly approved gate may proceed. */
-export function canProceed(status: ApprovalStatus): boolean {
-  return status === "APPROVED";
-}
-
-/** Rejects an agent attempting to approve a change it requested. */
+/**
+ * Compares stable opaque identity values and the complete delegation chain
+ * asserted by the trusted identity verifier. IDs remain case-sensitive.
+ */
 export function assertNotSelfApproval(
-  agentId: string,
+  approverId: string,
   requestedBy: string,
+  delegatedActorIds: readonly string[] = [],
 ): void {
-  const normalizedAgentId = agentId.trim();
-  const normalizedRequesterId = requestedBy.trim();
-  if (!normalizedAgentId || !normalizedRequesterId) {
+  const normalizedApproverId = approverId.trim().normalize("NFC");
+  const normalizedRequesterId = requestedBy.trim().normalize("NFC");
+  if (!normalizedApproverId || !normalizedRequesterId) {
     throw new UnauthorizedApprovalError(
       "Approval identities must be non-empty.",
     );
   }
 
-  if (normalizedAgentId === normalizedRequesterId) {
+  const actorIds = delegatedActorIds.map((id) =>
+    typeof id === "string" ? id.trim().normalize("NFC") : "",
+  );
+  if (actorIds.some((id) => !id)) {
+    throw new UnauthorizedApprovalError(
+      "The verified delegation chain is malformed.",
+    );
+  }
+  if (
+    normalizedApproverId === normalizedRequesterId ||
+    actorIds.includes(normalizedRequesterId)
+  ) {
     throw new UnauthorizedApprovalError();
   }
 }
 
-/** Only a human decision for the exact current proposal can change a pending gate. */
+/**
+ * Applies a verified human decision. The timestamp is generated from a
+ * server-owned clock passed by the authorization service, never request data.
+ */
 export function recordApprovalDecision(
   gate: ApprovalGate,
   decision: ApprovalDecision,
+  serverNow: Date,
 ): ApprovalGate {
   if (gate.status !== "PENDING") {
     throw new ApprovalAlreadyDecidedError();
@@ -104,22 +123,31 @@ export function recordApprovalDecision(
       "Only a human actor may decide an approval gate.",
     );
   }
-  assertNotSelfApproval(decision.actorId, gate.requestedBy);
+  assertNotSelfApproval(
+    decision.actorId,
+    gate.requestedBy,
+    decision.delegatedActorIds,
+  );
   if (
     decision.proposalDigest !== gate.proposalDigest ||
     decision.baseRevision !== gate.baseRevision
   ) {
     throw new StaleApprovalError();
   }
-  if (!Number.isFinite(Date.parse(decision.timestamp))) {
-    throw new TypeError("Approval timestamp must be a valid date.");
+  if (!(serverNow instanceof Date) || !Number.isFinite(serverNow.getTime())) {
+    throw new TypeError("A valid server clock value is required.");
   }
+
+  const timestamp = serverNow.toISOString();
+  const expiresAt = new Date(serverNow.getTime() + APPROVAL_TTL_MS).toISOString();
 
   return Object.freeze({
     ...gate,
     status: decision.status,
     authorizedBy: decision.actorId,
-    timestamp: decision.timestamp,
+    timestamp,
+    expiresAt,
+    consumedAt: null,
   });
 }
 
@@ -144,20 +172,28 @@ export function refreshApprovalForProposal(
     status: "PENDING" as const,
     authorizedBy: null,
     timestamp: null,
+    expiresAt: null,
+    consumedAt: null,
     proposalDigest,
     baseRevision,
   });
 }
 
-/** Re-check status and revision binding immediately before protected work. */
+/** A decision is usable only before expiry and for the exact proposal. */
 export function canProceedForProposal(
   gate: ApprovalGate,
   proposalDigest: string,
   baseRevision: string,
+  serverNow: Date,
 ): boolean {
   return (
     gate.status === "APPROVED" &&
     gate.proposalDigest === proposalDigest &&
-    gate.baseRevision === baseRevision
+    gate.baseRevision === baseRevision &&
+    gate.expiresAt !== null &&
+    Number.isFinite(Date.parse(gate.expiresAt)) &&
+    serverNow instanceof Date &&
+    Number.isFinite(serverNow.getTime()) &&
+    Date.parse(gate.expiresAt) > serverNow.getTime()
   );
 }
