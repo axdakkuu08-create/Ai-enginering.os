@@ -173,29 +173,11 @@ export class PostgresAuditLedgerStore implements AuditLedgerStore {
 
   public async append(event: SafeAuditEvent): Promise<AuditLedgerEntry> {
     for (let attempt = 0; attempt < 8; attempt += 1) {
-      // Verify history on every retry. Concurrent writers may have extended
-      // the chain after a competing compare-and-set succeeded.
+      // readAll verifies the stored head and events in one SQL snapshot.
+      // A competing writer is handled by the conditional head update below.
       const existing = await this.readAll();
-      const head = await this.sql.query(
-        `SELECT sequence, last_hash
-           FROM aios_audit_heads
-          WHERE stream_id = $1`,
-        [this.streamId],
-      );
-      const row = head.rows[0];
-      if (!row) throw new Error("Audit stream head is not initialized.");
-      const currentSequence = Number(row.sequence);
-      const currentHash = asString(row.last_hash, "audit head hash");
-      const existingHash = existing.at(-1)?.hash ?? AUDIT_GENESIS_HASH;
-      if (
-        !Number.isSafeInteger(currentSequence) ||
-        currentSequence !== existing.length ||
-        currentHash !== existingHash
-      ) {
-        throw new AuditIntegrityError();
-      }
-      const sequence = currentSequence + 1;
-      const previousHash = currentHash;
+      const sequence = existing.length + 1;
+      const previousHash = existing.at(-1)?.hash ?? AUDIT_GENESIS_HASH;
       const entry = await createAuditLedgerEntry(sequence, previousHash, event);
 
       const inserted = await this.sql.query(
@@ -230,30 +212,60 @@ export class PostgresAuditLedgerStore implements AuditLedgerStore {
   }
 
   public async readAll(): Promise<readonly AuditLedgerEntry[]> {
+    // A single statement gives events and their authoritative head the same
+    // MVCC snapshot. This also detects deletion of the final event rows.
     const result = await this.sql.query(
-      `SELECT sequence, previous_hash, event_hash, event_json
-         FROM aios_audit_events
-        WHERE stream_id = $1
-        ORDER BY sequence ASC`,
+      `SELECT h.sequence AS head_sequence,
+              h.last_hash AS head_hash,
+              e.sequence AS entry_sequence,
+              e.previous_hash,
+              e.event_hash,
+              e.event_json
+         FROM aios_audit_heads h
+         LEFT JOIN aios_audit_events e
+           ON e.stream_id = h.stream_id
+        WHERE h.stream_id = $1
+        ORDER BY e.sequence ASC`,
       [this.streamId],
     );
-    const entries = result.rows.map((row) => {
-      const rawEvent = row.event_json;
-      const event =
-        typeof rawEvent === "string"
-          ? (JSON.parse(rawEvent) as SafeAuditEvent)
-          : (rawEvent as SafeAuditEvent);
-      if (!event || typeof event.id !== "string" || !event.id.trim()) {
-        throw new AuditIntegrityError();
-      }
-      return Object.freeze({
-        sequence: asSafeVersion(row.sequence),
-        previousHash: asString(row.previous_hash, "previous hash"),
-        hash: asString(row.event_hash, "event hash"),
-        event: Object.freeze(event),
+    if (result.rows.length === 0) {
+      throw new AuditIntegrityError();
+    }
+
+    const headSequence = Number(result.rows[0].head_sequence);
+    const headHash = asString(result.rows[0].head_hash, "audit head hash");
+    if (!Number.isSafeInteger(headSequence) || headSequence < 0) {
+      throw new AuditIntegrityError();
+    }
+
+    const entries = result.rows
+      .filter(
+        (row) =>
+          row.entry_sequence !== null && row.entry_sequence !== undefined,
+      )
+      .map((row) => {
+        const rawEvent = row.event_json;
+        const event =
+          typeof rawEvent === "string"
+            ? (JSON.parse(rawEvent) as SafeAuditEvent)
+            : (rawEvent as SafeAuditEvent);
+        if (!event || typeof event.id !== "string" || !event.id.trim()) {
+          throw new AuditIntegrityError();
+        }
+        return Object.freeze({
+          sequence: asSafeVersion(row.entry_sequence),
+          previousHash: asString(row.previous_hash, "previous hash"),
+          hash: asString(row.event_hash, "event hash"),
+          event: Object.freeze(event),
+        });
       });
-    });
-    if (!(await verifyAuditLedger(entries))) {
+
+    const expectedHeadHash = entries.at(-1)?.hash ?? AUDIT_GENESIS_HASH;
+    if (
+      headSequence !== entries.length ||
+      headHash !== expectedHeadHash ||
+      !(await verifyAuditLedger(entries))
+    ) {
       throw new AuditIntegrityError();
     }
     return Object.freeze(entries);
