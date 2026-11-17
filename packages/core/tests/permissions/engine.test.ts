@@ -5,20 +5,22 @@ import {
   AgentPolicy,
   AuthorizationRequest,
   CanonicalCapability,
-  PRIVILEGED_CAPABILITIES
+  PRIVILEGED_CAPABILITIES,
 } from "../../src/permissions/types.js";
 
-const readRequest = (overrides: Partial<AuthorizationRequest> = {}): AuthorizationRequest => ({
+const readRequest = (
+  overrides: Partial<AuthorizationRequest> = {},
+): AuthorizationRequest => ({
   actorId: "agent-1",
   actorType: "agent",
   capability: CanonicalCapability.REPO_READ,
   repository: "org/repo",
-  ...overrides
+  ...overrides,
 });
 
 const allowPolicy = (
   actorId = "agent-1",
-  overrides: Partial<AgentPolicy> = {}
+  overrides: Partial<AgentPolicy> = {},
 ): AgentPolicy => ({
   actorId,
   policyVersion: "test-v1",
@@ -27,10 +29,10 @@ const allowPolicy = (
       id: "allow-read",
       effect: "ALLOW",
       capabilities: [CanonicalCapability.REPO_READ],
-      repositories: ["org/repo"]
-    }
+      repositories: ["org/repo"],
+    },
   ],
-  ...overrides
+  ...overrides,
 });
 
 describe("PermissionEngine - Milestone 1 verification", () => {
@@ -45,7 +47,7 @@ describe("PermissionEngine - Milestone 1 verification", () => {
     expect(engine.evaluate(readRequest())).toEqual({
       allowed: true,
       reason: "EXPLICIT_ALLOW",
-      policyVersion: "test-v1"
+      policyVersion: "test-v1",
     });
   });
 
@@ -63,16 +65,16 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             id: "allow",
             effect: "ALLOW",
             capabilities: [CanonicalCapability.REPO_READ],
-            repositories: ["org/repo"]
+            repositories: ["org/repo"],
           },
           {
             id: "deny",
             effect: "DENY",
             capabilities: [CanonicalCapability.REPO_READ],
-            repositories: ["org/repo"]
-          }
-        ]
-      })
+            repositories: ["org/repo"],
+          },
+        ],
+      }),
     );
     expect(engine.evaluate(readRequest()).reason).toBe("EXPLICIT_DENY");
   });
@@ -93,12 +95,15 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             effect: "ALLOW",
             capabilities: [CanonicalCapability.REPO_READ],
             repositories: ["org/repo"],
-            branches: ["feature/*"]
-          }
-        ]
-      })
+            branches: ["feature/*"],
+          },
+        ],
+      }),
     );
-    expect(engine.evaluate(readRequest({ branch: "feature/permission-engine" })).allowed).toBe(true);
+    expect(
+      engine.evaluate(readRequest({ branch: "feature/permission-engine" }))
+        .allowed,
+    ).toBe(true);
   });
 
   test("branch wildcard does not match a different branch", () => {
@@ -110,10 +115,10 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             effect: "ALLOW",
             capabilities: [CanonicalCapability.REPO_READ],
             repositories: ["org/repo"],
-            branches: ["feature/*"]
-          }
-        ]
-      })
+            branches: ["feature/*"],
+          },
+        ],
+      }),
     );
     const decision = engine.evaluate(readRequest({ branch: "main" }));
     expect(decision.allowed).toBe(false);
@@ -129,10 +134,10 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             effect: "ALLOW",
             capabilities: [CanonicalCapability.REPO_READ],
             repositories: ["org/repo"],
-            branches: ["feature/*"]
-          }
-        ]
-      })
+            branches: ["feature/*"],
+          },
+        ],
+      }),
     );
     expect(engine.evaluate(readRequest()).allowed).toBe(false);
   });
@@ -152,10 +157,10 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             id: "parent-read",
             effect: "ALLOW",
             capabilities: [CanonicalCapability.REPO_READ],
-            repositories: ["org/repo"]
-          }
-        ]
-      })
+            repositories: ["org/repo"],
+          },
+        ],
+      }),
     );
     engine.registerPolicy(
       allowPolicy("child", {
@@ -165,18 +170,18 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             id: "child-write",
             effect: "ALLOW",
             capabilities: [CanonicalCapability.BRANCH_WRITE],
-            repositories: ["org/repo"]
-          }
-        ]
-      })
+            repositories: ["org/repo"],
+          },
+        ],
+      }),
     );
 
     const decision = engine.evaluate(
       readRequest({
         actorId: "child",
         capability: CanonicalCapability.BRANCH_WRITE,
-        parentAgentId: "parent"
-      })
+        parentAgentId: "parent",
+      }),
     );
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe("INHERITED_RESTRICTION");
@@ -190,10 +195,10 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             id: "grandparent-read",
             effect: "ALLOW",
             capabilities: [CanonicalCapability.REPO_READ],
-            repositories: ["org/repo"]
-          }
-        ]
-      })
+            repositories: ["org/repo"],
+          },
+        ],
+      }),
     );
     engine.registerPolicy(
       allowPolicy("parent", {
@@ -203,10 +208,10 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             id: "parent-read",
             effect: "ALLOW",
             capabilities: [CanonicalCapability.REPO_READ],
-            repositories: ["org/repo"]
-          }
-        ]
-      })
+            repositories: ["org/repo"],
+          },
+        ],
+      }),
     );
     engine.registerPolicy(
       allowPolicy("child", {
@@ -216,14 +221,16 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             id: "child-read",
             effect: "ALLOW",
             capabilities: [CanonicalCapability.REPO_READ],
-            repositories: ["org/repo"]
-          }
-        ]
-      })
+            repositories: ["org/repo"],
+          },
+        ],
+      }),
     );
 
     expect(
-      engine.evaluate(readRequest({ actorId: "child", parentAgentId: "parent" })).allowed
+      engine.evaluate(
+        readRequest({ actorId: "child", parentAgentId: "parent" }),
+      ).allowed,
     ).toBe(true);
 
     const restrictedEngine = new PermissionEngine();
@@ -234,10 +241,10 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             id: "grandparent-no-branch-write",
             effect: "ALLOW",
             capabilities: [CanonicalCapability.REPO_READ],
-            repositories: ["org/repo"]
-          }
-        ]
-      })
+            repositories: ["org/repo"],
+          },
+        ],
+      }),
     );
     restrictedEngine.registerPolicy(
       allowPolicy("parent", {
@@ -247,10 +254,10 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             id: "parent-branch-write",
             effect: "ALLOW",
             capabilities: [CanonicalCapability.BRANCH_WRITE],
-            repositories: ["org/repo"]
-          }
-        ]
-      })
+            repositories: ["org/repo"],
+          },
+        ],
+      }),
     );
     restrictedEngine.registerPolicy(
       allowPolicy("child", {
@@ -260,25 +267,27 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             id: "child-branch-write",
             effect: "ALLOW",
             capabilities: [CanonicalCapability.BRANCH_WRITE],
-            repositories: ["org/repo"]
-          }
-        ]
-      })
+            repositories: ["org/repo"],
+          },
+        ],
+      }),
     );
 
     const decision = restrictedEngine.evaluate(
       readRequest({
         actorId: "child",
         parentAgentId: "parent",
-        capability: CanonicalCapability.BRANCH_WRITE
-      })
+        capability: CanonicalCapability.BRANCH_WRITE,
+      }),
     );
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe("INHERITED_RESTRICTION");
   });
 
   test("missing ancestor policy denies inherited permission", () => {
-    engine.registerPolicy(allowPolicy("child", { parentAgentId: "missing-parent" }));
+    engine.registerPolicy(
+      allowPolicy("child", { parentAgentId: "missing-parent" }),
+    );
     const decision = engine.evaluate(readRequest({ actorId: "child" }));
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe("INHERITED_RESTRICTION");
@@ -293,26 +302,31 @@ describe("PermissionEngine - Milestone 1 verification", () => {
   });
 
   test("request cannot substitute a different parent identity", () => {
-    engine.registerPolicy(allowPolicy("agent-1", { parentAgentId: "real-parent" }));
+    engine.registerPolicy(
+      allowPolicy("agent-1", { parentAgentId: "real-parent" }),
+    );
     engine.registerPolicy(allowPolicy("real-parent"));
     engine.registerPolicy(allowPolicy("fake-parent"));
-    const decision = engine.evaluate(readRequest({ parentAgentId: "fake-parent" }));
+    const decision = engine.evaluate(
+      readRequest({ parentAgentId: "fake-parent" }),
+    );
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe("INHERITED_RESTRICTION");
   });
 
   test("invalid capability is rejected", () => {
     const decision = engine.evaluate(
-      readRequest({ capability: "invalid.capability" })
+      readRequest({ capability: "invalid.capability" }),
     );
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe("INVALID_REQUEST");
   });
 
   test("malformed request is rejected", () => {
-    const decision = engine.evaluate(
-      { ...readRequest(), actorId: "" } as AuthorizationRequest
-    );
+    const decision = engine.evaluate({
+      ...readRequest(),
+      actorId: "",
+    } as AuthorizationRequest);
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe("INVALID_REQUEST");
   });
@@ -320,7 +334,7 @@ describe("PermissionEngine - Milestone 1 verification", () => {
   test("privileged capability registry is immutable at runtime", () => {
     expect(Object.isFrozen(PRIVILEGED_CAPABILITIES)).toBe(true);
     expect(() =>
-      (PRIVILEGED_CAPABILITIES as unknown as string[]).push("repo.read")
+      (PRIVILEGED_CAPABILITIES as unknown as string[]).push("repo.read"),
     ).toThrow();
   });
 
@@ -332,16 +346,16 @@ describe("PermissionEngine - Milestone 1 verification", () => {
             id: "allow-merge",
             effect: "ALLOW",
             capabilities: [CanonicalCapability.MERGE_EXECUTE],
-            repositories: ["org/repo"]
-          }
-        ]
-      })
+            repositories: ["org/repo"],
+          },
+        ],
+      }),
     );
     const decision = engine.evaluate(
       readRequest({
         capability: CanonicalCapability.MERGE_EXECUTE,
-        approvalReference: "reference-is-not-proof"
-      })
+        approvalReference: "reference-is-not-proof",
+      }),
     );
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toBe("PRIVILEGED_ACTION_BLOCKED");
@@ -356,18 +370,18 @@ describe("PermissionEngine - Milestone 1 verification", () => {
               id: "bad-rule",
               effect: "ALLOW",
               capabilities: [],
-              repositories: ["org/repo"]
-            }
-          ]
-        })
-      )
+              repositories: ["org/repo"],
+            },
+          ],
+        }),
+      ),
     ).toThrow(TypeError);
   });
 
   test("policy store rejects replacement of an existing actor snapshot", () => {
     engine.registerPolicy(allowPolicy());
     expect(() => engine.registerPolicy(allowPolicy())).toThrow(
-      "A policy is already registered for this actor"
+      "A policy is already registered for this actor",
     );
   });
 
@@ -380,12 +394,15 @@ describe("PermissionEngine - Milestone 1 verification", () => {
 
   test("identical inputs produce identical decisions", () => {
     engine.registerPolicy(allowPolicy());
-    expect(engine.evaluate(readRequest())).toEqual(engine.evaluate(readRequest()));
+    expect(engine.evaluate(readRequest())).toEqual(
+      engine.evaluate(readRequest()),
+    );
   });
 
   test("policy store exceptions return a denial decision", () => {
     class BrokenStore extends PolicyStore {
-      override get(_actorId: string): AgentPolicy | undefined {
+      override get(actorId: string): AgentPolicy | undefined {
+        void actorId;
         throw new Error("store unavailable");
       }
     }

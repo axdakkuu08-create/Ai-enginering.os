@@ -1,0 +1,71 @@
+name: OS-10.3 Candidate Formatting
+
+on:
+  pull_request:
+    paths:
+      - "packages/core/src/permissions/**"
+      - "packages/core/src/security/**"
+      - "packages/core/src/types/**"
+      - "packages/core/tests/**"
+      - ".github/workflows/os103-formatting-output.yml"
+      - "package.json"
+      - "package-lock.json"
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    name: Apply canonical Prettier formatting
+    if: github.event.pull_request.number == 4 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'security/auth0-trusted-identity-foundation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout PR source branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Format affected files
+        env:
+          GITHUB_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          files=(
+            packages/core/src/permissions/engine.ts
+            packages/core/src/permissions/index.ts
+            packages/core/src/permissions/store.ts
+            packages/core/src/permissions/types.ts
+            packages/core/src/security/approval-store.ts
+            packages/core/src/security/postgres-stores.ts
+            packages/core/src/security/protected-action.ts
+            packages/core/src/types/index.ts
+            packages/core/tests/approval-store.test.ts
+            packages/core/tests/audit-ledger.test.ts
+            packages/core/tests/auth0-access-token-verifier.test.ts
+            packages/core/tests/human-authorization.test.ts
+            packages/core/tests/permissions/engine.test.ts
+            packages/core/tests/postgres-stores.test.ts
+            packages/core/tests/protected-action.test.ts
+          )
+          npx prettier --write "${files[@]}"
+          npx prettier --check "${files[@]}"
+          if git diff --quiet -- "${files[@]}"; then
+            echo "All selected files were already formatted."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${files[@]}"
+          git commit -m "style(os-10.3): apply canonical Prettier formatting"
+          git push origin "HEAD:refs/heads/$GITHUB_HEAD_REF"
