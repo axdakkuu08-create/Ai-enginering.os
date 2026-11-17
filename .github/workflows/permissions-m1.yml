@@ -10,7 +10,6 @@ on:
       - "packages/core/src/security/**"
       - "packages/core/tests/**"
       - "AUTHENTICATION.md"
-      - "reports/**"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
