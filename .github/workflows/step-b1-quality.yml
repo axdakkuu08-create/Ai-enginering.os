@@ -13,6 +13,17 @@ on:
       - ".prettierrc.json"
       - ".prettierignore"
       - ".github/workflows/step-b1-quality.yml"
+  pull_request:
+    paths:
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "packages/**"
+      - "packages/core/sql/**"
+      - "eslint.config.js"
+      - ".prettierrc.json"
+      - ".prettierignore"
+      - ".github/workflows/step-b1-quality.yml"
 
 permissions:
   contents: read
