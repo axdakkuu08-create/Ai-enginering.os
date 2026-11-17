@@ -385,7 +385,8 @@ describe("PermissionEngine - Milestone 1 verification", () => {
 
   test("policy store exceptions return a denial decision", () => {
     class BrokenStore extends PolicyStore {
-      override get(_actorId: string): AgentPolicy | undefined {
+      override get(actorId: string): AgentPolicy | undefined {
+        void actorId;
         throw new Error("store unavailable");
       }
     }
