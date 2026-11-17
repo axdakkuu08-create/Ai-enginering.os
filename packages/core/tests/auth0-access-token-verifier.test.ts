@@ -42,7 +42,9 @@ async function token(
 
 function verifier(): Auth0AccessTokenVerifier {
   vi.stubGlobal("fetch", vi.fn(async () =>
-    new Response(JSON.stringify({ keys: [{ ...publicJwk, kid: "key-1", use: "sig", alg: "RS256" }] }), {
+    new Response(JSON.stringify({
+      keys: [{ ...publicJwk, kid: "key-1", use: "sig", alg: "RS256" }],
+    }), {
       status: 200,
       headers: { "content-type": "application/json" },
     }),
@@ -70,7 +72,24 @@ describe("Auth0 access token verifier", () => {
     expect(result).toEqual({
       subjectId: "auth0|human-42",
       permissions: ["approval:write"],
+      delegatedActorIds: [],
     });
+  });
+
+  it("extracts the signed OAuth actor chain in order", async () => {
+    const result = await verifier().verifyCredential(await token({
+      act: { sub: "service:gateway", act: { sub: "agent-1" } },
+    }));
+    expect(result?.delegatedActorIds).toEqual(["service:gateway", "agent-1"]);
+  });
+
+  it("rejects malformed or excessively deep actor claims", async () => {
+    expect(await verifier().verifyCredential(await token({ act: { sub: 8 } }))).toBeNull();
+    let chain: Record<string, unknown> = { sub: "actor-9" };
+    for (let index = 8; index >= 0; index -= 1) {
+      chain = { sub: `actor-${index}`, act: chain };
+    }
+    expect(await verifier().verifyCredential(await token({ act: chain }))).toBeNull();
   });
 
   it("rejects a tampered signature", async () => {
