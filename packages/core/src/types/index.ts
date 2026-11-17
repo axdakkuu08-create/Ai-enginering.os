@@ -1,11 +1,15 @@
 export type ProjectStatus = "ACTIVE" | "ARCHIVED" | "PENDING";
 export type TaskStep = "A" | "B" | "C" | "D";
 export type TaskRunStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
-export type ApprovalStatus = "PENDING" | "APPROVED" | "DENIED";
+export type ApprovalStatus = "PENDING" | "APPROVED" | "DENIED" | "CONSUMED";
 
 /** Supported dashboard navigation destinations; intentionally a closed union. */
 export type NavigationRoute =
-  "/" | "/projects" | "/tasks" | "/evidence" | "/settings";
+  | "/"
+  | "/projects"
+  | "/tasks"
+  | "/evidence"
+  | "/settings";
 
 export interface Project {
   readonly id: string;
@@ -30,8 +34,13 @@ export interface ApprovalGate {
   readonly requestedBy: string;
   readonly status: ApprovalStatus;
   readonly authorizedBy: string | null;
+  /** Server-generated decision time. */
   readonly timestamp: string | null;
-  /** Immutable proposal revision approved by the human. */
+  /** Server-generated expiry; null until a decision is made. */
+  readonly expiresAt: string | null;
+  /** Set by the atomic protected-action gate when consumed. */
+  readonly consumedAt: string | null;
+  /** Digest of the complete protected-action proposal. */
   readonly proposalDigest: string;
   /** Base revision against which the proposal was reviewed. */
   readonly baseRevision: string;
