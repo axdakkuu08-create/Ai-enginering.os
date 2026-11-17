@@ -17,6 +17,8 @@ export interface VerifiedHumanIdentity {
   readonly subjectId: string;
   /** Server-resolved permissions; never copied from client request fields. */
   readonly permissions: readonly string[];
+  /** Verified OAuth actor-chain subjects, when the IdP supplies them. */
+  readonly delegatedActorIds?: readonly string[];
 }
 
 /**
@@ -47,12 +49,9 @@ export interface HumanApprovalDependencies {
 }
 
 /**
- * Records a human decision on a stored approval gate.
- *
- * Provenance: the actor is the verified subject only. Any extra fields a
- * caller sends (actorId, actorType, timestamp, gate) are ignored.
- * State: the gate is read from the trusted store and the decision is written
- * with compare-and-set against the version that was read.
+ * Records a human decision on a gate loaded from trusted storage.
+ * Server time, verified identity and atomic persistence are dependencies
+ * owned by the server composition root, not by request JSON.
  */
 export async function authorizeHumanApproval(
   request: HumanApprovalRequest,
@@ -60,14 +59,26 @@ export async function authorizeHumanApproval(
 ): Promise<ApprovalGate> {
   const { verifier, store, clock } = dependencies;
 
-  if (typeof request.gateId !== "string" || !request.gateId.trim()) {
+  if (
+    !request ||
+    typeof request.gateId !== "string" ||
+    !request.gateId.trim()
+  ) {
     throw new TypeError("Approval gate identifier must be non-empty.");
   }
   if (request.status !== "APPROVED" && request.status !== "DENIED") {
     throw new TypeError("Approval status must be APPROVED or DENIED.");
   }
+  if (
+    typeof request.proposalDigest !== "string" ||
+    !request.proposalDigest.trim() ||
+    typeof request.baseRevision !== "string" ||
+    !request.baseRevision.trim()
+  ) {
+    throw new TypeError("Proposal digest and base revision are required.");
+  }
 
-  let identity: Awaited<ReturnType<HumanIdentityVerifier["verifyCredential"]>>;
+  let identity;
   try {
     identity = await verifier.verifyCredential(request.credential);
   } catch {
@@ -76,33 +87,47 @@ export async function authorizeHumanApproval(
 
   if (
     !identity ||
+    typeof identity.subjectId !== "string" ||
     !identity.subjectId.trim() ||
-    !identity.permissions.includes(APPROVAL_PERMISSION)
+    !Array.isArray(identity.permissions) ||
+    !identity.permissions.includes(APPROVAL_PERMISSION) ||
+    (identity.delegatedActorIds !== undefined &&
+      (!Array.isArray(identity.delegatedActorIds) ||
+        !identity.delegatedActorIds.every(
+          (id) => typeof id === "string" && id.trim().length > 0,
+        )))
   ) {
     throw new UnauthorizedApprovalError(
-      "Authenticated identity lacks approval permission.",
+      "Authenticated identity lacks approval permission or valid identity claims.",
     );
   }
 
   const stored = await store.load(request.gateId);
   if (!stored) throw new ApprovalNotFoundError();
 
-  // Throws before any write for self-approval, stale proposal, or a gate
-  // that is already decided.
-  const next = recordApprovalDecision(stored.gate, {
-    status: request.status,
-    actorId: identity.subjectId,
-    actorType: "HUMAN",
+  const serverNow = clock.now();
+  const next = recordApprovalDecision(
+    stored.gate,
+    {
+      status: request.status,
+      actorId: identity.subjectId,
+      actorType: "HUMAN",
+      proposalDigest: request.proposalDigest,
+      baseRevision: request.baseRevision,
+      delegatedActorIds: identity.delegatedActorIds,
+    },
+    serverNow,
+  );
+
+  const committed = await store.compareAndSet({
+    gateId: request.gateId,
+    expectedVersion: stored.version,
+    expectedStatus: "PENDING",
     proposalDigest: request.proposalDigest,
     baseRevision: request.baseRevision,
-    timestamp: clock.now().toISOString(),
-  });
-
-  const committed = await store.compareAndSet(
-    request.gateId,
-    stored.version,
     next,
-  );
+    serverNow,
+  });
   if (!committed) throw new ApprovalAlreadyDecidedError();
 
   return next;
