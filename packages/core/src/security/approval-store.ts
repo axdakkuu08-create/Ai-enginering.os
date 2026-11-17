@@ -1,5 +1,6 @@
-import type { ApprovalGate } from "../types/index.js";
+import type { ApprovalGate, ApprovalStatus } from "../types/index.js";
 import {
+  ApprovalAlreadyDecidedError,
   canProceedForProposal,
   StaleApprovalError,
   UnauthorizedApprovalError,
@@ -18,24 +19,24 @@ export interface StoredApprovalGate {
   readonly version: number;
 }
 
+export interface ApprovalCompareAndSet {
+  readonly gateId: string;
+  readonly expectedVersion: number;
+  readonly expectedStatus: "PENDING" | "APPROVED";
+  readonly proposalDigest: string;
+  readonly baseRevision: string;
+  readonly next: ApprovalGate;
+  readonly serverNow: Date;
+}
+
 /**
- * Authoritative persistence for approval gates. Gate state is read from here
- * and written only through compareAndSet, so a decision can only be committed
- * against the exact state it was computed from.
+ * Production adapters must implement compareAndSet as one atomic database
+ * conditional write. A read followed by an unconditional write is not valid.
  */
 export interface ApprovalStore {
-  /** Creates a new gate. Must reject duplicates and non-pending gates. */
   create(gate: ApprovalGate): Promise<void>;
   load(gateId: string): Promise<StoredApprovalGate | null>;
-  /**
-   * Writes `next` only if the stored version still equals `expectedVersion`.
-   * Returns false if another writer changed the gate first.
-   */
-  compareAndSet(
-    gateId: string,
-    expectedVersion: number,
-    next: ApprovalGate,
-  ): Promise<boolean>;
+  compareAndSet(input: ApprovalCompareAndSet): Promise<boolean>;
 }
 
 /** Server-side time source. Callers cannot supply decision timestamps. */
@@ -44,9 +45,8 @@ export interface ApprovalClock {
 }
 
 /**
- * Reference implementation for tests and single-process use. It is not
- * durable. Production requires a database with a conditional write (for
- * example, UPDATE ... WHERE version = $expected) providing the same semantics.
+ * Test/reference implementation only. It is process-local and not durable.
+ * Production must use PostgresApprovalStore or an equivalent durable CAS store.
  */
 export class InMemoryApprovalStore implements ApprovalStore {
   private readonly gates = new Map<string, StoredApprovalGate>();
@@ -55,7 +55,9 @@ export class InMemoryApprovalStore implements ApprovalStore {
     if (
       gate.status !== "PENDING" ||
       gate.authorizedBy !== null ||
-      gate.timestamp !== null
+      gate.timestamp !== null ||
+      gate.expiresAt !== null ||
+      gate.consumedAt !== null
     ) {
       throw new TypeError("New approval gates must be pending and undecided.");
     }
@@ -70,39 +72,84 @@ export class InMemoryApprovalStore implements ApprovalStore {
   }
 
   public async compareAndSet(
-    gateId: string,
-    expectedVersion: number,
-    next: ApprovalGate,
+    input: ApprovalCompareAndSet,
   ): Promise<boolean> {
-    const current = this.gates.get(gateId);
-    if (!current || current.version !== expectedVersion) return false;
-    if (next.id !== gateId) return false;
+    const current = this.gates.get(input.gateId);
+    if (
+      !current ||
+      current.version !== input.expectedVersion ||
+      current.gate.status !== input.expectedStatus ||
+      current.gate.proposalDigest !== input.proposalDigest ||
+      current.gate.baseRevision !== input.baseRevision ||
+      input.next.id !== input.gateId
+    ) {
+      return false;
+    }
+
+    const allowedTransition =
+      (input.expectedStatus === "PENDING" &&
+        (input.next.status === "APPROVED" || input.next.status === "DENIED")) ||
+      (input.expectedStatus === "APPROVED" &&
+        input.next.status === "CONSUMED");
+    if (!allowedTransition) return false;
+
+    if (
+      input.expectedStatus === "APPROVED" &&
+      (!current.gate.expiresAt ||
+        Date.parse(current.gate.expiresAt) <= input.serverNow.getTime())
+    ) {
+      return false;
+    }
+
     this.gates.set(
-      gateId,
-      Object.freeze({ gate: next, version: current.version + 1 }),
+      input.gateId,
+      Object.freeze({ gate: input.next, version: current.version + 1 }),
     );
     return true;
   }
 }
 
 /**
- * Re-reads the gate from trusted storage immediately before a protected
- * operation. Returns the stored gate only if it is APPROVED for exactly this
- * proposal digest and base revision.
+ * Atomically consumes a still-fresh approval immediately before the protected
+ * action. The same human decision cannot authorize a second action or replay.
  */
-export async function requireApprovedForProposal(
+export async function consumeApprovalForAction(
   store: ApprovalStore,
   gateId: string,
   proposalDigest: string,
   baseRevision: string,
+  serverNow: Date,
 ): Promise<ApprovalGate> {
   const stored = await store.load(gateId);
   if (!stored) throw new ApprovalNotFoundError();
   if (stored.gate.status !== "APPROVED") {
-    throw new UnauthorizedApprovalError("Approval gate is not approved.");
+    throw new UnauthorizedApprovalError("Approval is not available for use.");
   }
-  if (!canProceedForProposal(stored.gate, proposalDigest, baseRevision)) {
+  if (
+    !canProceedForProposal(
+      stored.gate,
+      proposalDigest,
+      baseRevision,
+      serverNow,
+    )
+  ) {
     throw new StaleApprovalError();
   }
-  return stored.gate;
+
+  const consumed = Object.freeze({
+    ...stored.gate,
+    status: "CONSUMED" as const,
+    consumedAt: serverNow.toISOString(),
+  });
+  const committed = await store.compareAndSet({
+    gateId,
+    expectedVersion: stored.version,
+    expectedStatus: "APPROVED",
+    proposalDigest,
+    baseRevision,
+    next: consumed,
+    serverNow,
+  });
+  if (!committed) throw new ApprovalAlreadyDecidedError();
+  return consumed;
 }
