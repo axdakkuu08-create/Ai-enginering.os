@@ -8,6 +8,7 @@ on:
     paths:
       - "packages/core/src/permissions/**"
       - "packages/core/src/security/**"
+      - "packages/core/sql/**"
       - "packages/core/tests/**"
       - "AUTHENTICATION.md"
       - "package.json"
