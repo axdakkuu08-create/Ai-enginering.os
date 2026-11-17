@@ -12,6 +12,8 @@ interface Auth0AccessTokenClaims {
   readonly azp?: unknown;
   readonly sub?: unknown;
   readonly permissions?: unknown;
+  /** RFC 8693 actor claim; used only when the issuer provides it. */
+  readonly act?: unknown;
 }
 
 interface Auth0Jwk {
@@ -38,6 +40,7 @@ export interface Auth0VerifierOptions {
 
 const MAX_TOKEN_LENGTH = 16_384;
 const CLOCK_TOLERANCE_SECONDS = 60;
+const MAX_ACTOR_CHAIN_DEPTH = 8;
 
 function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> {
   if (!/^[A-Za-z0-9_-]+$/.test(value)) {
@@ -46,8 +49,6 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> {
   const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
   const binary = atob(padded);
-  // Allocate a plain ArrayBuffer (not SharedArrayBuffer/ArrayBufferLike) so
-  // the result satisfies WebCrypto's BufferSource parameter type.
   const bytes = new Uint8Array(new ArrayBuffer(binary.length));
   for (let index = 0; index < binary.length; index += 1) {
     bytes[index] = binary.charCodeAt(index);
@@ -61,11 +62,37 @@ function decodeJsonSegment<T>(segment: string): T {
 }
 
 /**
+ * Extracts delegated actor subjects from the signed RFC 8693 act claim.
+ * Malformed claims or excessive depth invalidate the credential. An absent
+ * claim is allowed and yields an empty delegation list.
+ */
+function parseActorChain(value: unknown): readonly string[] | null {
+  if (value === undefined) return Object.freeze([]);
+  const subjects: string[] = [];
+  let current = value;
+  let depth = 0;
+
+  while (current !== undefined) {
+    if (
+      typeof current !== "object" ||
+      current === null ||
+      Array.isArray(current) ||
+      depth >= MAX_ACTOR_CHAIN_DEPTH
+    ) {
+      return null;
+    }
+    const actor = current as Record<string, unknown>;
+    if (typeof actor.sub !== "string" || !actor.sub.trim()) return null;
+    subjects.push(actor.sub);
+    current = actor.act;
+    depth += 1;
+  }
+  return Object.freeze(subjects);
+}
+
+/**
  * Auth0 RS256 access-token verifier for a server-only AIOS trust boundary.
- *
- * It deliberately accepts raw bearer tokens, not browser identity objects.
- * Configure an Auth0 API with RBAC and "Add Permissions in the Access Token";
- * only the resulting permissions claim is trusted for approval authorization.
+ * It returns only claims authenticated by the pinned issuer's JWKS signature.
  */
 export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
   private readonly jwksUrl: string;
@@ -102,8 +129,6 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
       const header = decodeJsonSegment<Record<string, unknown>>(encodedHeader);
       const claims = decodeJsonSegment<Auth0AccessTokenClaims>(encodedPayload);
 
-      // No algorithm negotiation, remote key URLs, critical extensions or
-      // unsigned/unencoded payload modes are accepted.
       if (
         header.alg !== "RS256" ||
         typeof header.kid !== "string" ||
@@ -153,6 +178,9 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
         return null;
       }
 
+      const delegatedActorIds = parseActorChain(claims.act);
+      if (!delegatedActorIds) return null;
+
       const jwksResponse = await fetch(this.jwksUrl, {
         method: "GET",
         headers: { accept: "application/json" },
@@ -197,9 +225,9 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
       return Object.freeze({
         subjectId: claims.sub,
         permissions: Object.freeze([...claims.permissions]),
+        delegatedActorIds,
       });
     } catch {
-      // Invalid input, provider/network errors and crypto failures all deny.
       return null;
     }
   }
