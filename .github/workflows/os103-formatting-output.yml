@@ -17,7 +17,7 @@ permissions:
 jobs:
   format:
     name: Apply canonical Prettier formatting
-    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'security/')
+    if: github.event.pull_request.number == 4 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'security/auth0-trusted-identity-foundation'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
