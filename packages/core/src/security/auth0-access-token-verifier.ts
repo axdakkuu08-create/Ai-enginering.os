@@ -69,7 +69,7 @@ function decodeJsonSegment<T>(segment: string): T {
 function parseActorChain(value: unknown): readonly string[] | null {
   if (value === undefined) return Object.freeze([]);
   const subjects: string[] = [];
-  let current = value;
+  let current: unknown = value;
   let depth = 0;
 
   while (current !== undefined) {
