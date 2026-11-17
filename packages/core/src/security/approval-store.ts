@@ -116,9 +116,7 @@ export class InMemoryApprovalStore implements ApprovalStore {
     return this.gates.get(gateId) ?? null;
   }
 
-  public async compareAndSet(
-    input: ApprovalCompareAndSet,
-  ): Promise<boolean> {
+  public async compareAndSet(input: ApprovalCompareAndSet): Promise<boolean> {
     const current = this.gates.get(input.gateId);
     if (
       !current ||
@@ -156,12 +154,7 @@ export async function consumeApprovalForAction(
     throw new UnauthorizedApprovalError("Approval is not available for use.");
   }
   if (
-    !canProceedForProposal(
-      stored.gate,
-      proposalDigest,
-      baseRevision,
-      serverNow,
-    )
+    !canProceedForProposal(stored.gate, proposalDigest, baseRevision, serverNow)
   ) {
     throw new StaleApprovalError();
   }

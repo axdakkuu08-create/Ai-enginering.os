@@ -4,13 +4,15 @@ import {
   AuthorizationRequest,
   CanonicalCapability,
   PRIVILEGED_CAPABILITIES,
-  PolicyRule
+  PolicyRule,
 } from "./types.js";
 import { PolicyStore } from "./store.js";
 
 const DEFAULT_POLICY_VERSION = "v1.1";
 const actorTypes = new Set(["user", "agent", "worker"]);
-const canonicalCapabilities = new Set<string>(Object.values(CanonicalCapability));
+const canonicalCapabilities = new Set<string>(
+  Object.values(CanonicalCapability),
+);
 
 type PolicyCheck = "allowed" | "denied" | "scope-mismatch" | "missing";
 
@@ -75,13 +77,17 @@ export class PermissionEngine {
   private decision(
     allowed: boolean,
     reason: AuthorizationDecision["reason"],
-    policyVersion: string
+    policyVersion: string,
   ): AuthorizationDecision {
     return { allowed, reason, policyVersion };
   }
 
   private isValidRequest(request: AuthorizationRequest): boolean {
-    if (typeof request !== "object" || request === null || Array.isArray(request)) {
+    if (
+      typeof request !== "object" ||
+      request === null ||
+      Array.isArray(request)
+    ) {
       return false;
     }
     if (
@@ -125,23 +131,34 @@ export class PermissionEngine {
     return true;
   }
 
-  private hasExplicitDeny(policy: AgentPolicy, request: AuthorizationRequest): boolean {
+  private hasExplicitDeny(
+    policy: AgentPolicy,
+    request: AuthorizationRequest,
+  ): boolean {
     return policy.rules.some(
-      (rule) => rule.effect === "DENY" && this.ruleMatches(rule, request)
+      (rule) => rule.effect === "DENY" && this.ruleMatches(rule, request),
     );
   }
 
-  private hasExplicitAllow(policy: AgentPolicy, request: AuthorizationRequest): boolean {
+  private hasExplicitAllow(
+    policy: AgentPolicy,
+    request: AuthorizationRequest,
+  ): boolean {
     return policy.rules.some(
-      (rule) => rule.effect === "ALLOW" && this.ruleMatches(rule, request)
+      (rule) => rule.effect === "ALLOW" && this.ruleMatches(rule, request),
     );
   }
 
-  private ruleMatches(rule: PolicyRule, request: AuthorizationRequest): boolean {
+  private ruleMatches(
+    rule: PolicyRule,
+    request: AuthorizationRequest,
+  ): boolean {
     const capabilityMatches =
-      rule.capabilities.includes("*") || rule.capabilities.includes(request.capability);
+      rule.capabilities.includes("*") ||
+      rule.capabilities.includes(request.capability);
     const repositoryMatches =
-      rule.repositories.includes("*") || rule.repositories.includes(request.repository);
+      rule.repositories.includes("*") ||
+      rule.repositories.includes(request.repository);
     return (
       capabilityMatches &&
       repositoryMatches &&
@@ -149,7 +166,10 @@ export class PermissionEngine {
     );
   }
 
-  private branchMatches(allowedBranches: string[] | undefined, branch: string | undefined): boolean {
+  private branchMatches(
+    allowedBranches: string[] | undefined,
+    branch: string | undefined,
+  ): boolean {
     if (allowedBranches === undefined) return true;
     if (!branch) return false;
 
@@ -165,12 +185,13 @@ export class PermissionEngine {
 
   private checkPolicyScope(
     policy: AgentPolicy,
-    request: AuthorizationRequest
+    request: AuthorizationRequest,
   ): PolicyCheck {
     const allowRules = policy.rules.filter(
       (rule) =>
         rule.effect === "ALLOW" &&
-        (rule.capabilities.includes("*") || rule.capabilities.includes(request.capability))
+        (rule.capabilities.includes("*") ||
+          rule.capabilities.includes(request.capability)),
     );
 
     if (allowRules.length === 0) return "missing";
@@ -181,7 +202,7 @@ export class PermissionEngine {
 
   private hasEffectiveAncestorPermission(
     actorPolicy: AgentPolicy,
-    request: AuthorizationRequest
+    request: AuthorizationRequest,
   ): boolean {
     if (
       request.parentAgentId !== undefined &&

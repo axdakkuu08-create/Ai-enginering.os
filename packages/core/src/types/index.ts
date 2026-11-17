@@ -5,11 +5,7 @@ export type ApprovalStatus = "PENDING" | "APPROVED" | "DENIED" | "CONSUMED";
 
 /** Supported dashboard navigation destinations; intentionally a closed union. */
 export type NavigationRoute =
-  | "/"
-  | "/projects"
-  | "/tasks"
-  | "/evidence"
-  | "/settings";
+  "/" | "/projects" | "/tasks" | "/evidence" | "/settings";
 
 export interface Project {
   readonly id: string;

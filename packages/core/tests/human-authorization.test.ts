@@ -39,9 +39,7 @@ async function setup(
   await store.create(createApprovalGate(gateInput));
   const verifier: HumanIdentityVerifier = {
     verifyCredential: async () =>
-      subjectId === null
-        ? null
-        : { subjectId, permissions, delegatedActorIds },
+      subjectId === null ? null : { subjectId, permissions, delegatedActorIds },
   };
   return {
     store,
@@ -124,10 +122,11 @@ describe("trusted human approval boundary", () => {
   });
 
   it("blocks a verified delegation chain containing the requester", async () => {
-    const { store, deps } = await setup("human-7", [APPROVAL_PERMISSION], [
-      "service-2",
-      "agent-1",
-    ]);
+    const { store, deps } = await setup(
+      "human-7",
+      [APPROVAL_PERMISSION],
+      ["service-2", "agent-1"],
+    );
     await expect(authorizeHumanApproval(request(), deps)).rejects.toThrow(
       UnauthorizedApprovalError,
     );
@@ -174,8 +173,12 @@ describe("trusted human approval boundary", () => {
       authorizeHumanApproval(request(), deps),
       authorizeHumanApproval(request({ status: "DENIED" }), other),
     ]);
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === "rejected"),
+    ).toHaveLength(1);
     expect((await store.load("gate-1"))?.version).toBe(2);
   });
 

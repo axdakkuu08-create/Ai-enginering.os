@@ -110,15 +110,11 @@ export class PostgresApprovalStore implements ApprovalStore {
     return result.rows[0] ? mapApproval(result.rows[0]) : null;
   }
 
-  public async compareAndSet(
-    input: ApprovalCompareAndSet,
-  ): Promise<boolean> {
+  public async compareAndSet(input: ApprovalCompareAndSet): Promise<boolean> {
     const allowed =
       (input.expectedStatus === "PENDING" &&
-        (input.next.status === "APPROVED" ||
-          input.next.status === "DENIED")) ||
-      (input.expectedStatus === "APPROVED" &&
-        input.next.status === "CONSUMED");
+        (input.next.status === "APPROVED" || input.next.status === "DENIED")) ||
+      (input.expectedStatus === "APPROVED" && input.next.status === "CONSUMED");
     if (!allowed || !isValidApprovalCompareAndSet(input)) {
       return false;
     }
@@ -200,11 +196,7 @@ export class PostgresAuditLedgerStore implements AuditLedgerStore {
       }
       const sequence = currentSequence + 1;
       const previousHash = currentHash;
-      const entry = await createAuditLedgerEntry(
-        sequence,
-        previousHash,
-        event,
-      );
+      const entry = await createAuditLedgerEntry(sequence, previousHash, event);
 
       const inserted = await this.sql.query(
         `WITH advanced AS (

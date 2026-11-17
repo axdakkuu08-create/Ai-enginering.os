@@ -1,6 +1,4 @@
-import type {
-  AuthorizationRequest,
-} from "../permissions/types.js";
+import type { AuthorizationRequest } from "../permissions/types.js";
 import type { PermissionEngine } from "../permissions/engine.js";
 import {
   ApprovalNotFoundError,
@@ -107,7 +105,9 @@ export interface ProtectedActionDependencies {
  * immutable proposal. This class is not itself a GitHub API mutator.
  */
 export class ProtectedActionGateway {
-  public constructor(private readonly dependencies: ProtectedActionDependencies) {}
+  public constructor(
+    private readonly dependencies: ProtectedActionDependencies,
+  ) {}
 
   public async execute<T>(
     gateId: string,
@@ -128,9 +128,7 @@ export class ProtectedActionGateway {
       repository: initial.repository,
       branch: initial.targetBranch,
       commitSha: initial.baseRevision,
-      ...(actor.parentAgentId
-        ? { parentAgentId: actor.parentAgentId }
-        : {}),
+      ...(actor.parentAgentId ? { parentAgentId: actor.parentAgentId } : {}),
     });
     if (!decision.allowed) {
       throw new ProtectedActionDeniedError(decision.reason);

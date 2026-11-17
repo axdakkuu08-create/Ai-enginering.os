@@ -200,8 +200,12 @@ describe("one-time protected-action approval", () => {
       consumeApprovalForAction(store, "gate-s", "proposal-1", "base-1", now),
       consumeApprovalForAction(store, "gate-s", "proposal-1", "base-1", now),
     ]);
-    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === "rejected"),
+    ).toHaveLength(1);
     const stored = await store.load("gate-s");
     expect(stored?.version).toBe(3);
     expect(stored?.gate.status).toBe("CONSUMED");

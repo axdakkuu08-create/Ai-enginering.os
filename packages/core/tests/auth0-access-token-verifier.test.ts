@@ -1,4 +1,12 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { Auth0AccessTokenVerifier } from "../src/security/auth0-access-token-verifier.js";
 
 const issuer = "https://aios-example.us.auth0.com/";
@@ -20,7 +28,12 @@ async function token(
   overrides: Record<string, unknown> = {},
   headerOverrides: Record<string, unknown> = {},
 ): Promise<string> {
-  const header = encode({ alg: "RS256", typ: "JWT", kid: "key-1", ...headerOverrides });
+  const header = encode({
+    alg: "RS256",
+    typ: "JWT",
+    kid: "key-1",
+    ...headerOverrides,
+  });
   const payload = encode({
     iss: issuer,
     aud: audience,
@@ -32,30 +45,53 @@ async function token(
     ...overrides,
   });
   const input = new TextEncoder().encode(header + "." + payload);
-  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", privateKey, input);
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    privateKey,
+    input,
+  );
   const bytes = new Uint8Array(signature);
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
-  const encodedSignature = btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const encodedSignature = btoa(binary)
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
   return header + "." + payload + "." + encodedSignature;
 }
 
 function verifier(): Auth0AccessTokenVerifier {
-  vi.stubGlobal("fetch", vi.fn(async () =>
-    new Response(JSON.stringify({
-      keys: [{ ...publicJwk, kid: "key-1", use: "sig", alg: "RS256" }],
-    }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    }),
-  ));
-  return new Auth0AccessTokenVerifier({ issuer, audience, allowedClientIds: [clientId] });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            keys: [{ ...publicJwk, kid: "key-1", use: "sig", alg: "RS256" }],
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+    ),
+  );
+  return new Auth0AccessTokenVerifier({
+    issuer,
+    audience,
+    allowedClientIds: [clientId],
+  });
 }
 
 beforeAll(async () => {
   vi.spyOn(Date, "now").mockReturnValue(now);
   const pair = await crypto.subtle.generateKey(
-    { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
     true,
     ["sign", "verify"],
   );
@@ -77,19 +113,25 @@ describe("Auth0 access token verifier", () => {
   });
 
   it("extracts the signed OAuth actor chain in order", async () => {
-    const result = await verifier().verifyCredential(await token({
-      act: { sub: "service:gateway", act: { sub: "agent-1" } },
-    }));
+    const result = await verifier().verifyCredential(
+      await token({
+        act: { sub: "service:gateway", act: { sub: "agent-1" } },
+      }),
+    );
     expect(result?.delegatedActorIds).toEqual(["service:gateway", "agent-1"]);
   });
 
   it("rejects malformed or excessively deep actor claims", async () => {
-    expect(await verifier().verifyCredential(await token({ act: { sub: 8 } }))).toBeNull();
+    expect(
+      await verifier().verifyCredential(await token({ act: { sub: 8 } })),
+    ).toBeNull();
     let chain: Record<string, unknown> = { sub: "actor-9" };
     for (let index = 8; index >= 0; index -= 1) {
       chain = { sub: `actor-${index}`, act: chain };
     }
-    expect(await verifier().verifyCredential(await token({ act: chain }))).toBeNull();
+    expect(
+      await verifier().verifyCredential(await token({ act: chain })),
+    ).toBeNull();
   });
 
   it("rejects a tampered signature", async () => {
@@ -111,29 +153,52 @@ describe("Auth0 access token verifier", () => {
   });
 
   it("rejects algorithm confusion and remote-key headers", async () => {
-    expect(await verifier().verifyCredential(await token({}, { alg: "none" }))).toBeNull();
-    expect(await verifier().verifyCredential(await token({}, { jku: "https://attacker.example/jwks" }))).toBeNull();
+    expect(
+      await verifier().verifyCredential(await token({}, { alg: "none" })),
+    ).toBeNull();
+    expect(
+      await verifier().verifyCredential(
+        await token({}, { jku: "https://attacker.example/jwks" }),
+      ),
+    ).toBeNull();
   });
 
   it("rejects malformed credentials and provider failures", async () => {
     expect(await verifier().verifyCredential({ sub: "auth0|fake" })).toBeNull();
-    expect(await verifier().verifyCredential("not.a.jwt.with.extra")).toBeNull();
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("network failure"); }));
-    expect(await new Auth0AccessTokenVerifier({
-      issuer, audience, allowedClientIds: [clientId],
-    }).verifyCredential(await token())).toBeNull();
+    expect(
+      await verifier().verifyCredential("not.a.jwt.with.extra"),
+    ).toBeNull();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("network failure");
+      }),
+    );
+    expect(
+      await new Auth0AccessTokenVerifier({
+        issuer,
+        audience,
+        allowedClientIds: [clientId],
+      }).verifyCredential(await token()),
+    ).toBeNull();
   });
 
   it("requires secure, explicit verifier configuration", () => {
-    expect(() => new Auth0AccessTokenVerifier({
-      issuer: "http://aios-example.us.auth0.com/",
-      audience,
-      allowedClientIds: [clientId],
-    })).toThrow(TypeError);
-    expect(() => new Auth0AccessTokenVerifier({
-      issuer,
-      audience,
-      allowedClientIds: [],
-    })).toThrow(TypeError);
+    expect(
+      () =>
+        new Auth0AccessTokenVerifier({
+          issuer: "http://aios-example.us.auth0.com/",
+          audience,
+          allowedClientIds: [clientId],
+        }),
+    ).toThrow(TypeError);
+    expect(
+      () =>
+        new Auth0AccessTokenVerifier({
+          issuer,
+          audience,
+          allowedClientIds: [],
+        }),
+    ).toThrow(TypeError);
   });
 });

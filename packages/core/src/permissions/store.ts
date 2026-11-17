@@ -1,10 +1,8 @@
-import {
-  AgentPolicy,
-  CanonicalCapability,
-  PolicyRule
-} from "./types.js";
+import { AgentPolicy, CanonicalCapability, PolicyRule } from "./types.js";
 
-const canonicalCapabilities = new Set<string>(Object.values(CanonicalCapability));
+const canonicalCapabilities = new Set<string>(
+  Object.values(CanonicalCapability),
+);
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -14,33 +12,47 @@ function freezePolicy(policy: AgentPolicy): AgentPolicy {
   const rules = policy.rules.map((rule) =>
     Object.freeze({
       ...rule,
-      capabilities: Object.freeze([...rule.capabilities]) as unknown as string[],
-      repositories: Object.freeze([...rule.repositories]) as unknown as string[],
+      capabilities: Object.freeze([
+        ...rule.capabilities,
+      ]) as unknown as string[],
+      repositories: Object.freeze([
+        ...rule.repositories,
+      ]) as unknown as string[],
       ...(rule.branches === undefined
         ? {}
-        : { branches: Object.freeze([...rule.branches]) as unknown as string[] })
-    })
+        : {
+            branches: Object.freeze([...rule.branches]) as unknown as string[],
+          }),
+    }),
   );
   return Object.freeze({
     ...policy,
-    rules: Object.freeze(rules) as unknown as PolicyRule[]
+    rules: Object.freeze(rules) as unknown as PolicyRule[],
   });
 }
 
-export function validateAgentPolicy(value: unknown): asserts value is AgentPolicy {
+export function validateAgentPolicy(
+  value: unknown,
+): asserts value is AgentPolicy {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new TypeError("Policy must be an object");
   }
 
   const policy = value as Partial<AgentPolicy>;
-  if (!isNonEmptyString(policy.actorId) || !isNonEmptyString(policy.policyVersion)) {
+  if (
+    !isNonEmptyString(policy.actorId) ||
+    !isNonEmptyString(policy.policyVersion)
+  ) {
     throw new TypeError("Policy actorId and policyVersion are required");
   }
   if (
     policy.parentAgentId !== undefined &&
-    (!isNonEmptyString(policy.parentAgentId) || policy.parentAgentId === policy.actorId)
+    (!isNonEmptyString(policy.parentAgentId) ||
+      policy.parentAgentId === policy.actorId)
   ) {
-    throw new TypeError("Policy parentAgentId must be a different non-empty actor ID");
+    throw new TypeError(
+      "Policy parentAgentId must be a different non-empty actor ID",
+    );
   }
   if (!Array.isArray(policy.rules)) {
     throw new TypeError("Policy rules must be an array");
@@ -48,7 +60,11 @@ export function validateAgentPolicy(value: unknown): asserts value is AgentPolic
 
   const ruleIds = new Set<string>();
   for (const candidate of policy.rules as unknown[]) {
-    if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
+    if (
+      typeof candidate !== "object" ||
+      candidate === null ||
+      Array.isArray(candidate)
+    ) {
       throw new TypeError("Every policy rule must be an object");
     }
     const rule = candidate as Partial<PolicyRule>;
@@ -64,17 +80,22 @@ export function validateAgentPolicy(value: unknown): asserts value is AgentPolic
       !Array.isArray(rule.capabilities) ||
       rule.capabilities.length === 0 ||
       !rule.capabilities.every(
-        (capability) => capability === "*" || canonicalCapabilities.has(capability)
+        (capability) =>
+          capability === "*" || canonicalCapabilities.has(capability),
       )
     ) {
-      throw new TypeError("Policy rule capabilities must be a non-empty canonical allowlist");
+      throw new TypeError(
+        "Policy rule capabilities must be a non-empty canonical allowlist",
+      );
     }
     if (
       !Array.isArray(rule.repositories) ||
       rule.repositories.length === 0 ||
       !rule.repositories.every(isNonEmptyString)
     ) {
-      throw new TypeError("Policy rule repositories must be a non-empty allowlist");
+      throw new TypeError(
+        "Policy rule repositories must be a non-empty allowlist",
+      );
     }
     if (
       rule.branches !== undefined &&
@@ -85,10 +106,13 @@ export function validateAgentPolicy(value: unknown): asserts value is AgentPolic
             isNonEmptyString(branch) &&
             (branch === "*" ||
               (!branch.includes("*") && !branch.includes("?")) ||
-              (branch.endsWith("/*") && branch.indexOf("*") === branch.length - 1))
+              (branch.endsWith("/*") &&
+                branch.indexOf("*") === branch.length - 1)),
         ))
     ) {
-      throw new TypeError("Branch allowlists must contain exact names, '*', or trailing '/*' patterns");
+      throw new TypeError(
+        "Branch allowlists must contain exact names, '*', or trailing '/*' patterns",
+      );
     }
   }
 }
@@ -103,7 +127,9 @@ export class PolicyStore {
   public register(policy: AgentPolicy): void {
     validateAgentPolicy(policy);
     if (this.policies.has(policy.actorId)) {
-      throw new Error("A policy is already registered for this actor; create a new store for a new policy snapshot");
+      throw new Error(
+        "A policy is already registered for this actor; create a new store for a new policy snapshot",
+      );
     }
     this.policies.set(policy.actorId, freezePolicy(policy));
   }

@@ -8,7 +8,10 @@ import {
   PostgresApprovalStore,
   PostgresAuditLedgerStore,
 } from "../src/security/postgres-stores.js";
-import { createApprovalGate, recordApprovalDecision } from "../src/security/approval.js";
+import {
+  createApprovalGate,
+  recordApprovalDecision,
+} from "../src/security/approval.js";
 import type { SqlExecutor, SqlQueryResult } from "../src/security/sql.js";
 
 const now = new Date("2026-11-18T10:00:00.000Z");
@@ -73,19 +76,21 @@ describe("PostgresApprovalStore", () => {
   it("maps a stored gate without trusting client-provided fields", async () => {
     const sql: SqlExecutor = {
       query: async (): Promise<SqlQueryResult> => ({
-        rows: [{
-          gate_id: "gate-db",
-          task_id: "task-db",
-          requested_by: "agent-db",
-          status: "APPROVED",
-          proposal_digest: "digest-db",
-          base_revision: "a".repeat(40),
-          authorized_by: "human-db",
-          decided_at: now,
-          expires_at: new Date(now.getTime() + 300_000),
-          consumed_at: null,
-          version: "2",
-        }],
+        rows: [
+          {
+            gate_id: "gate-db",
+            task_id: "task-db",
+            requested_by: "agent-db",
+            status: "APPROVED",
+            proposal_digest: "digest-db",
+            base_revision: "a".repeat(40),
+            authorized_by: "human-db",
+            decided_at: now,
+            expires_at: new Date(now.getTime() + 300_000),
+            consumed_at: null,
+            version: "2",
+          },
+        ],
         rowCount: 1,
       }),
     };
@@ -120,7 +125,10 @@ describe("PostgresAuditLedgerStore", () => {
             eventId,
             eventJson,
           ] = values;
-          if (Number(expectedSequence) !== sequence || expectedHash !== lastHash) {
+          if (
+            Number(expectedSequence) !== sequence ||
+            expectedHash !== lastHash
+          ) {
             return { rows: [], rowCount: 0 };
           }
           sequence = Number(nextSequence);
@@ -159,7 +167,10 @@ describe("PostgresAuditLedgerStore", () => {
         now,
       );
 
-    await Promise.all([store.append(await makeEvent("event-a")), store.append(await makeEvent("event-b"))]);
+    await Promise.all([
+      store.append(await makeEvent("event-a")),
+      store.append(await makeEvent("event-b")),
+    ]);
     const entries = await store.readAll();
     expect(entries.map((entry) => entry.sequence)).toEqual([1, 2]);
     await expect(verifyAuditLedger(entries)).resolves.toBe(true);

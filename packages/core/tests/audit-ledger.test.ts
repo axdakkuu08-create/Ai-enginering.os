@@ -40,7 +40,9 @@ describe("tamper-evident audit ledger", () => {
       event: { ...entries[0].event, action: "approval.forged" },
     };
     await expect(verifyAuditLedger([changed, entries[1]])).resolves.toBe(false);
-    await expect(verifyAuditLedger([...entries].reverse())).resolves.toBe(false);
+    await expect(verifyAuditLedger([...entries].reverse())).resolves.toBe(
+      false,
+    );
     await expect(
       verifyAuditLedger([
         entries[0],

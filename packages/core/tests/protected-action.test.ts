@@ -30,13 +30,15 @@ function permissionEngine(allow = true): PermissionEngine {
     actorId: "agent-1",
     policyVersion: "test-v1",
     rules: allow
-      ? [{
-          id: "branch-write",
-          effect: "ALLOW",
-          capabilities: ["branch.write"],
-          repositories: ["example-org/sample-repo"],
-          branches: ["feat/safe"],
-        }]
+      ? [
+          {
+            id: "branch-write",
+            effect: "ALLOW",
+            capabilities: ["branch.write"],
+            repositories: ["example-org/sample-repo"],
+            branches: ["feat/safe"],
+          },
+        ]
       : [],
   });
   return engine;

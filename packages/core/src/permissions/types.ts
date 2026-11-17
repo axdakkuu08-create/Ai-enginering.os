@@ -5,12 +5,12 @@ export enum CanonicalCapability {
   BRANCH_WRITE = "branch.write",
   PR_WRITE = "pr.write",
   MERGE_EXECUTE = "merge.execute",
-  DEPLOY_EXECUTE = "deploy.execute"
+  DEPLOY_EXECUTE = "deploy.execute",
 }
 
 export const PRIVILEGED_CAPABILITIES: readonly string[] = Object.freeze([
   CanonicalCapability.MERGE_EXECUTE,
-  CanonicalCapability.DEPLOY_EXECUTE
+  CanonicalCapability.DEPLOY_EXECUTE,
 ]);
 
 export type ActorType = "user" | "agent" | "worker";
