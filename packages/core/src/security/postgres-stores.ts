@@ -1,5 +1,6 @@
 import type { ApprovalGate, ApprovalStatus } from "../types/index.js";
 import {
+  isValidApprovalCompareAndSet,
   type ApprovalCompareAndSet,
   type ApprovalStore,
   type StoredApprovalGate,
@@ -116,12 +117,7 @@ export class PostgresApprovalStore implements ApprovalStore {
           input.next.status === "DENIED")) ||
       (input.expectedStatus === "APPROVED" &&
         input.next.status === "CONSUMED");
-    if (
-      !allowed ||
-      input.next.id !== input.gateId ||
-      input.next.proposalDigest !== input.proposalDigest ||
-      input.next.baseRevision !== input.baseRevision
-    ) {
+    if (!allowed || !isValidApprovalCompareAndSet(input)) {
       return false;
     }
 
@@ -139,6 +135,9 @@ export class PostgresApprovalStore implements ApprovalStore {
           AND proposal_digest = $4
           AND base_revision = $5
           AND ($3 <> 'APPROVED' OR expires_at > $6)
+          AND authorized_by IS NOT DISTINCT FROM $12
+          AND decided_at IS NOT DISTINCT FROM $13
+          AND expires_at IS NOT DISTINCT FROM $14
        RETURNING version`,
       [
         input.gateId,
@@ -152,6 +151,9 @@ export class PostgresApprovalStore implements ApprovalStore {
         input.next.timestamp,
         input.next.expiresAt,
         input.next.consumedAt,
+        input.expectedAuthorizedBy,
+        input.expectedTimestamp,
+        input.expectedExpiresAt,
       ],
     );
     return result.rows.length === 1 || result.rowCount === 1;
