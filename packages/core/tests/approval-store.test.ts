@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  ApprovalAlreadyDecidedError,
   createApprovalGate,
   recordApprovalDecision,
   UnauthorizedApprovalError,
@@ -137,6 +136,9 @@ describe("one-time protected-action approval", () => {
       gateId: "gate-s",
       expectedVersion: 1,
       expectedStatus: "PENDING",
+      expectedAuthorizedBy: null,
+      expectedTimestamp: null,
+      expectedExpiresAt: null,
       proposalDigest: "proposal-1",
       baseRevision: "base-1",
       next: approved,
