@@ -1,4 +1,4 @@
-name: OS-10.3 Candidate Formatting Output
+name: OS-10.3 Candidate Formatting
 
 on:
   pull_request:
@@ -12,18 +12,20 @@ on:
       - "package-lock.json"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   format:
-    name: Generate canonical Prettier output
+    name: Apply canonical Prettier formatting
+    if: github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'security/')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout PR candidate
+      - name: Checkout PR source branch
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -35,66 +37,35 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Format affected files
+        env:
+          GITHUB_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
-          npx prettier --write \
-            packages/core/src/permissions/engine.ts \
-            packages/core/src/permissions/index.ts \
-            packages/core/src/permissions/store.ts \
-            packages/core/src/permissions/types.ts \
-            packages/core/src/security/approval-store.ts \
-            packages/core/src/security/postgres-stores.ts \
-            packages/core/src/security/protected-action.ts \
-            packages/core/src/types/index.ts \
-            packages/core/tests/approval-store.test.ts \
-            packages/core/tests/audit-ledger.test.ts \
-            packages/core/tests/auth0-access-token-verifier.test.ts \
-            packages/core/tests/human-authorization.test.ts \
-            packages/core/tests/permissions/engine.test.ts \
-            packages/core/tests/postgres-stores.test.ts \
+          files=(
+            packages/core/src/permissions/engine.ts
+            packages/core/src/permissions/index.ts
+            packages/core/src/permissions/store.ts
+            packages/core/src/permissions/types.ts
+            packages/core/src/security/approval-store.ts
+            packages/core/src/security/postgres-stores.ts
+            packages/core/src/security/protected-action.ts
+            packages/core/src/types/index.ts
+            packages/core/tests/approval-store.test.ts
+            packages/core/tests/audit-ledger.test.ts
+            packages/core/tests/auth0-access-token-verifier.test.ts
+            packages/core/tests/human-authorization.test.ts
+            packages/core/tests/permissions/engine.test.ts
+            packages/core/tests/postgres-stores.test.ts
             packages/core/tests/protected-action.test.ts
-          mkdir -p "$RUNNER_TEMP/os103-formatted"
-          for file in \
-            packages/core/src/permissions/engine.ts \
-            packages/core/src/permissions/index.ts \
-            packages/core/src/permissions/store.ts \
-            packages/core/src/permissions/types.ts \
-            packages/core/src/security/approval-store.ts \
-            packages/core/src/security/postgres-stores.ts \
-            packages/core/src/security/protected-action.ts \
-            packages/core/src/types/index.ts \
-            packages/core/tests/approval-store.test.ts \
-            packages/core/tests/audit-ledger.test.ts \
-            packages/core/tests/auth0-access-token-verifier.test.ts \
-            packages/core/tests/human-authorization.test.ts \
-            packages/core/tests/permissions/engine.test.ts \
-            packages/core/tests/postgres-stores.test.ts \
-            packages/core/tests/protected-action.test.ts
-          do
-            mkdir -p "$RUNNER_TEMP/os103-formatted/$(dirname "$file")"
-            cp "$file" "$RUNNER_TEMP/os103-formatted/$file"
-          done
-          npx prettier --check \
-            packages/core/src/permissions/engine.ts \
-            packages/core/src/permissions/index.ts \
-            packages/core/src/permissions/store.ts \
-            packages/core/src/permissions/types.ts \
-            packages/core/src/security/approval-store.ts \
-            packages/core/src/security/postgres-stores.ts \
-            packages/core/src/security/protected-action.ts \
-            packages/core/src/types/index.ts \
-            packages/core/tests/approval-store.test.ts \
-            packages/core/tests/audit-ledger.test.ts \
-            packages/core/tests/auth0-access-token-verifier.test.ts \
-            packages/core/tests/human-authorization.test.ts \
-            packages/core/tests/permissions/engine.test.ts \
-            packages/core/tests/postgres-stores.test.ts \
-            packages/core/tests/protected-action.test.ts
-
-      - name: Upload formatted source files
-        uses: actions/upload-artifact@v4
-        with:
-          name: os103-formatted-files-${{ github.run_id }}
-          path: ${{ runner.temp }}/os103-formatted/
-          if-no-files-found: error
-          retention-days: 7
+          )
+          npx prettier --write "${files[@]}"
+          npx prettier --check "${files[@]}"
+          if git diff --quiet -- "${files[@]}"; then
+            echo "All selected files were already formatted."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${files[@]}"
+          git commit -m "style(os-10.3): apply canonical Prettier formatting"
+          git push origin "HEAD:refs/heads/$GITHUB_HEAD_REF"
