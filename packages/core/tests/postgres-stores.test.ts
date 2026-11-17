@@ -111,7 +111,9 @@ describe("PostgresAuditLedgerStore", () => {
       query: async (query, values = []): Promise<SqlQueryResult> => {
         if (query.includes("LEFT JOIN aios_audit_events")) {
           const rows = [...stored]
-            .sort((left, right) => Number(left.sequence) - Number(right.sequence))
+            .sort(
+              (left, right) => Number(left.sequence) - Number(right.sequence),
+            )
             .map((entry) => ({
               head_sequence: sequence,
               head_hash: lastHash,
