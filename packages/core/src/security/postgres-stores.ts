@@ -7,9 +7,11 @@ import {
 } from "./approval-store.js";
 import {
   AUDIT_GENESIS_HASH,
+  AuditIntegrityError,
   createAuditLedgerEntry,
   type AuditLedgerEntry,
   type AuditLedgerStore,
+  verifyAuditLedger,
 } from "./audit-ledger.js";
 import type { SafeAuditEvent } from "./audit-event.js";
 import type { SqlExecutor } from "./sql.js";
@@ -174,6 +176,9 @@ export class PostgresAuditLedgerStore implements AuditLedgerStore {
   }
 
   public async append(event: SafeAuditEvent): Promise<AuditLedgerEntry> {
+    // Verify existing history before extending it. This detects missing,
+    // reordered, or edited records before they become the prefix of new data.
+    const existing = await this.readAll();
     for (let attempt = 0; attempt < 8; attempt += 1) {
       const head = await this.sql.query(
         `SELECT sequence, last_hash
@@ -183,8 +188,18 @@ export class PostgresAuditLedgerStore implements AuditLedgerStore {
       );
       const row = head.rows[0];
       if (!row) throw new Error("Audit stream head is not initialized.");
-      const sequence = Number(row.sequence) + 1;
-      const previousHash = asString(row.last_hash, "audit head hash");
+      const currentSequence = Number(row.sequence);
+      const currentHash = asString(row.last_hash, "audit head hash");
+      const existingHash = existing.at(-1)?.hash ?? AUDIT_GENESIS_HASH;
+      if (
+        !Number.isSafeInteger(currentSequence) ||
+        currentSequence !== existing.length ||
+        currentHash !== existingHash
+      ) {
+        throw new AuditIntegrityError();
+      }
+      const sequence = currentSequence + 1;
+      const previousHash = currentHash;
       const entry = await createAuditLedgerEntry(
         sequence,
         previousHash,
@@ -230,21 +245,26 @@ export class PostgresAuditLedgerStore implements AuditLedgerStore {
         ORDER BY sequence ASC`,
       [this.streamId],
     );
-    return Object.freeze(
-      result.rows.map((row) => {
-        const rawEvent = row.event_json;
-        const event =
-          typeof rawEvent === "string"
-            ? (JSON.parse(rawEvent) as SafeAuditEvent)
-            : (rawEvent as SafeAuditEvent);
-        return Object.freeze({
-          sequence: asSafeVersion(row.sequence),
-          previousHash: asString(row.previous_hash, "previous hash"),
-          hash: asString(row.event_hash, "event hash"),
-          event: Object.freeze(event),
-        });
-      }),
-    );
+    const entries = result.rows.map((row) => {
+      const rawEvent = row.event_json;
+      const event =
+        typeof rawEvent === "string"
+          ? (JSON.parse(rawEvent) as SafeAuditEvent)
+          : (rawEvent as SafeAuditEvent);
+      if (!event || typeof event.id !== "string" || !event.id.trim()) {
+        throw new AuditIntegrityError();
+      }
+      return Object.freeze({
+        sequence: asSafeVersion(row.sequence),
+        previousHash: asString(row.previous_hash, "previous hash"),
+        hash: asString(row.event_hash, "event hash"),
+        event: Object.freeze(event),
+      });
+    });
+    if (!(await verifyAuditLedger(entries))) {
+      throw new AuditIntegrityError();
+    }
+    return Object.freeze(entries);
   }
 
   public static readonly genesisHash = AUDIT_GENESIS_HASH;
