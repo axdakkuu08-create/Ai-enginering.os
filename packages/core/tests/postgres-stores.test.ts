@@ -109,10 +109,32 @@ describe("PostgresAuditLedgerStore", () => {
     const stored: Array<Record<string, unknown>> = [];
     const sql: SqlExecutor = {
       query: async (query, values = []): Promise<SqlQueryResult> => {
-        if (query.includes("FROM aios_audit_heads")) {
+        if (query.includes("LEFT JOIN aios_audit_events")) {
+          const rows = [...stored]
+            .sort((left, right) => Number(left.sequence) - Number(right.sequence))
+            .map((entry) => ({
+              head_sequence: sequence,
+              head_hash: lastHash,
+              entry_sequence: entry.sequence,
+              previous_hash: entry.previous_hash,
+              event_hash: entry.event_hash,
+              event_json: entry.event_json,
+            }));
           return {
-            rows: [{ sequence, last_hash: lastHash }],
-            rowCount: 1,
+            rows:
+              rows.length > 0
+                ? rows
+                : [
+                    {
+                      head_sequence: sequence,
+                      head_hash: lastHash,
+                      entry_sequence: null,
+                      previous_hash: null,
+                      event_hash: null,
+                      event_json: null,
+                    },
+                  ],
+            rowCount: rows.length || 1,
           };
         }
         if (query.includes("WITH advanced AS")) {
@@ -143,14 +165,6 @@ describe("PostgresAuditLedgerStore", () => {
           });
           return { rows: [{ sequence }], rowCount: 1 };
         }
-        if (query.includes("FROM aios_audit_events")) {
-          return {
-            rows: [...stored].sort(
-              (left, right) => Number(left.sequence) - Number(right.sequence),
-            ),
-            rowCount: stored.length,
-          };
-        }
         throw new Error("Unexpected SQL statement in test fixture.");
       },
     };
@@ -174,6 +188,12 @@ describe("PostgresAuditLedgerStore", () => {
     const entries = await store.readAll();
     expect(entries.map((entry) => entry.sequence)).toEqual([1, 2]);
     await expect(verifyAuditLedger(entries)).resolves.toBe(true);
+
+    // Removing a valid final row must fail even though the remaining prefix
+    // is internally valid: the database head still commits to sequence two.
+    const removedTail = stored.pop();
+    await expect(store.readAll()).rejects.toThrow(AuditIntegrityError);
+    if (removedTail) stored.push(removedTail);
 
     stored[0].event_hash = "f".repeat(64);
     await expect(store.readAll()).rejects.toThrow(AuditIntegrityError);
