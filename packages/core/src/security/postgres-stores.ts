@@ -176,10 +176,10 @@ export class PostgresAuditLedgerStore implements AuditLedgerStore {
   }
 
   public async append(event: SafeAuditEvent): Promise<AuditLedgerEntry> {
-    // Verify existing history before extending it. This detects missing,
-    // reordered, or edited records before they become the prefix of new data.
-    const existing = await this.readAll();
     for (let attempt = 0; attempt < 8; attempt += 1) {
+      // Verify history on every retry. Concurrent writers may have extended
+      // the chain after a competing compare-and-set succeeded.
+      const existing = await this.readAll();
       const head = await this.sql.query(
         `SELECT sequence, last_hash
            FROM aios_audit_heads
