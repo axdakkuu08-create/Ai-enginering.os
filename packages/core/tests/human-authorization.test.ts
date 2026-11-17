@@ -7,7 +7,6 @@ import {
   type HumanIdentityVerifier,
 } from "../src/security/human-authorization.js";
 import {
-  ApprovalAlreadyDecidedError,
   createApprovalGate,
   StaleApprovalError,
   UnauthorizedApprovalError,
