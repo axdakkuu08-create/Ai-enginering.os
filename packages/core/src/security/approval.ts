@@ -39,6 +39,12 @@ export interface ApprovalDecision {
   readonly delegatedActorIds?: readonly string[];
 }
 
+function normalizeIdentity(value: string): string {
+  // Case-folding is intentionally conservative: opaque IDs that differ only
+  // by case are treated as the same requester to fail closed on aliases.
+  return value.trim().normalize("NFC").toLocaleLowerCase("en-US");
+}
+
 /** New gates are pending and are bound to one exact proposal and base revision. */
 export function createApprovalGate(input: {
   readonly id: string;
@@ -71,16 +77,16 @@ export function createApprovalGate(input: {
 }
 
 /**
- * Compares stable opaque identity values and the complete delegation chain
- * asserted by the trusted identity verifier. IDs remain case-sensitive.
+ * Compares canonicalized opaque identity values and the verified delegation
+ * chain. A case-only collision is denied rather than risking self-approval.
  */
 export function assertNotSelfApproval(
   approverId: string,
   requestedBy: string,
   delegatedActorIds: readonly string[] = [],
 ): void {
-  const normalizedApproverId = approverId.trim().normalize("NFC");
-  const normalizedRequesterId = requestedBy.trim().normalize("NFC");
+  const normalizedApproverId = normalizeIdentity(approverId);
+  const normalizedRequesterId = normalizeIdentity(requestedBy);
   if (!normalizedApproverId || !normalizedRequesterId) {
     throw new UnauthorizedApprovalError(
       "Approval identities must be non-empty.",
@@ -88,7 +94,7 @@ export function assertNotSelfApproval(
   }
 
   const actorIds = delegatedActorIds.map((id) =>
-    typeof id === "string" ? id.trim().normalize("NFC") : "",
+    typeof id === "string" ? normalizeIdentity(id) : "",
   );
   if (actorIds.some((id) => !id)) {
     throw new UnauthorizedApprovalError(
@@ -103,10 +109,7 @@ export function assertNotSelfApproval(
   }
 }
 
-/**
- * Applies a verified human decision. The timestamp is generated from a
- * server-owned clock passed by the authorization service, never request data.
- */
+/** Applies a verified human decision using a server-owned clock. */
 export function recordApprovalDecision(
   gate: ApprovalGate,
   decision: ApprovalDecision,
@@ -114,6 +117,9 @@ export function recordApprovalDecision(
 ): ApprovalGate {
   if (gate.status !== "PENDING") {
     throw new ApprovalAlreadyDecidedError();
+  }
+  if (decision.status !== "APPROVED" && decision.status !== "DENIED") {
+    throw new TypeError("Approval decision status is invalid.");
   }
   if (!decision.actorId.trim()) {
     throw new UnauthorizedApprovalError("Approval identity must be non-empty.");
@@ -139,7 +145,9 @@ export function recordApprovalDecision(
   }
 
   const timestamp = serverNow.toISOString();
-  const expiresAt = new Date(serverNow.getTime() + APPROVAL_TTL_MS).toISOString();
+  const expiresAt = new Date(
+    serverNow.getTime() + APPROVAL_TTL_MS,
+  ).toISOString();
 
   return Object.freeze({
     ...gate,
