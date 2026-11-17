@@ -138,7 +138,9 @@ describe("Auth0 access token verifier", () => {
     const signed = await token();
     const [header, payload, signature] = signed.split(".");
     const replacement = signature.startsWith("A") ? "B" : "A";
-    const tampered = [header, payload, replacement + signature.slice(1)].join(".");
+    const tampered = [header, payload, replacement + signature.slice(1)].join(
+      ".",
+    );
     expect(await verifier().verifyCredential(tampered)).toBeNull();
   });
 
