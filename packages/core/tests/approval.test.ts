@@ -65,6 +65,12 @@ describe("approval gate", () => {
     expect(() => assertNotSelfApproval("human-1", "agent-1")).not.toThrow();
   });
 
+  it("denies case-only requester identity aliases conservatively", () => {
+    expect(() => assertNotSelfApproval("Agent-1", "agent-1")).toThrow(
+      UnauthorizedApprovalError,
+    );
+  });
+
   it("rejects empty or malformed delegation identities", () => {
     expect(() => assertNotSelfApproval("human-1", "agent-1", [" "])).toThrow(
       UnauthorizedApprovalError,
