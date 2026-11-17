@@ -21,7 +21,6 @@ on:
       - "packages/**"
       - "packages/core/sql/**"
       - "AUTHENTICATION.md"
-      - "reports/**"
       - ".github/workflows/os103-formatting-output.yml"
       - ".github/workflows/permissions-m1.yml"
       - "eslint.config.js"
