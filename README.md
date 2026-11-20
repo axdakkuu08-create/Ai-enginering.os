@@ -62,7 +62,7 @@ This is the intended architecture, not a claim that every component is already o
 
 ## Current project status
 
-**Latest live audit: 2026-11-13.** The latest verified code commit is `b60d4a97d66eb7b0807fd0c836066245419fe598`; subsequent monitor commits are documentation-only. `main` remains at `e030750f66120b15829eb1f39504370efe5cba1c`. After the documentation-only updates, the feature branch is 75 commits ahead and 0 behind, with `main` as its merge base. The latest completed code verification is Permission Engine Milestone 1 run [43371254358](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/43371254358).
+**Latest repository inspection: 2026-11-20.** No new GitHub Actions verification runs have appeared on `feat/projects-registry` since 2026-11-13. The latest completed code verification remains Permission Engine Milestone 1 run [43371254358](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/43371254358), successful on exact code commit `b60d4a97d66eb7b0807fd0c836066245419fe598`. Current feature-branch HEAD is `d807262e55f634ae45d2073c643a60f17d44a907`; the three commits after that CI run changed only `README.md`, `ROADMAP.md`, and the 2026-11-13 verification report. `main` and the merge base remain at `e030750f66120b15829eb1f39504370efe5cba1c`. The branch is 78 commits ahead and 0 behind.
 
 ### Verified progress
 
@@ -95,7 +95,7 @@ This is the intended architecture, not a claim that every component is already o
 
 GitHub currently reports `protected: false` for the listed branches. Do not assume that a green feature-branch workflow protects `main`.
 
-See the [2026-11-13 weekly verification status](reports/2026-11-13-weekly-verification-status.md) for the inspected Step B artifact, latest exact-HEAD CI results, the Step B.1 failure, and remaining limitations. The [2026-11-10 repository status and remaining-gates report](reports/2026-11-10-repository-status-and-remaining-gates.md) remains the prior security-gate review. The [roadmap](ROADMAP.md) retains the phase gates.
+See the [2026-11-20 weekly verification status](reports/2026-11-20-weekly-verification-status.md) for the latest run inventory, exact branch state, re-inspected Step B artifact, and outstanding quality/security gates. The [2026-11-13 weekly verification status](reports/2026-11-13-weekly-verification-status.md) retains the earlier detailed run review. The [2026-11-10 repository status and remaining-gates report](reports/2026-11-10-repository-status-and-remaining-gates.md) remains the prior security-gate review. The [roadmap](ROADMAP.md) retains the phase gates.
 
 ## Non-negotiable safety and delivery rules
 
