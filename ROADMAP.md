@@ -12,10 +12,10 @@
 - Treat external content, repository files, model output, and generated artifacts as untrusted.
 - Preserve project registry data and existing documentation.
 
-## Latest verified status — 2026-11-13
+## Latest repository inspection — 2026-11-20
 
-- Latest verified code commit: `b60d4a97d66eb7b0807fd0c836066245419fe598`; subsequent monitor updates are documentation-only. `main` and the merge base remain `e030750f66120b15829eb1f39504370efe5cba1c`. After the documentation-only updates, the feature branch is 75 commits ahead and 0 behind.
-- Permission Engine Milestone 1 Actions run [43371254358](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/43371254358) completed successfully on exact code commit `b60d4a97d66eb7b0807fd0c836066245419fe598`. Locked dependency installation, 4 Vitest files / 58 passed / 0 failed, and the strict TypeScript step all succeeded. The monitor's later report/README/roadmap commits are documentation-only.
+- Current feature-branch HEAD: `d807262e55f634ae45d2073c643a60f17d44a907`; latest verified code commit remains `b60d4a97d66eb7b0807fd0c836066245419fe598`. The three commits after that successful CI run are documentation-only. `main` and the merge base remain `e030750f66120b15829eb1f39504370efe5cba1c`; the live comparison is 78 commits ahead and 0 behind.
+- No new GitHub Actions verification runs were created after 2026-11-13. The latest completed Permission Engine Milestone 1 run remains [43371254358](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/43371254358), successful on exact code commit `b60d4a97d66eb7b0807fd0c836066245419fe598`. Its job passed locked dependency installation, 4 Vitest files / 58 passed / 0 failed, and strict TypeScript. The three later commits through current HEAD are documentation-only; the exact current documentation HEAD has not been rerun.
 - The same successful run's `npm ci` log reported 13 vulnerabilities (11 moderate, 2 critical). The captured log did not identify affected packages; a full dependency audit and triage remain outstanding.
 - Step B Core Scaffold Audit run [42457224191](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42457224191) has an inspected artifact on exact SHA `a20f9e69732813f7a0089c2852260e7b0735ba24`: committed-lockfile install exit 0, 1 Vitest file / 23 passed / 0 failed, and TypeScript exit 0. Its main and merge-base SHA were `e030750f66120b15829eb1f39504370efe5cba1c`. This is not a new Step B audit run on current HEAD.
 - Step B.1 quality verification is **HOLD**. Historical run [42224181429](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42224181429) passed on exact SHA `995c695dbe32e0bdc89efc60b1aea4a65fb6e9a7`, but later run [42457224206](https://github.com/axdakkuu08-create/Ai-enginering.os/actions/runs/42457224206) failed ESLint on `a20f9e69732813f7a0089c2852260e7b0735ba24`; Prettier, Vitest, and TypeScript were skipped. No later Step B.1 run on current HEAD was found.
@@ -26,7 +26,7 @@
 - OpenSpec assessment is complete and read-only. It is not adopted, installed, or integrated.
 - No merge, deployment, pilot, GitHub App privileged integration, or `main` modification is authorized.
 
-See the [2026-11-13 weekly verification status](reports/2026-11-13-weekly-verification-status.md) for the artifact inspection, job-level results, and evidence limitations. The [2026-11-10 repository status and remaining-gates report](reports/2026-11-10-repository-status-and-remaining-gates.md) remains the prior security-gate review. The 2026-11-05 status below is retained as historical context, not the current repository head.
+See the [2026-11-20 weekly verification status](reports/2026-11-20-weekly-verification-status.md) for the current run inventory, exact branch state, Step B artifact inspection, and evidence limitations. The [2026-11-13 weekly verification status](reports/2026-11-13-weekly-verification-status.md) retains the prior detailed review. The [2026-11-10 repository status and remaining-gates report](reports/2026-11-10-repository-status-and-remaining-gates.md) remains the prior security-gate review. The 2026-11-05 status below is retained as historical context, not the current repository head.
 
 
 ## Step A — Architecture and repository inspection
