@@ -29,3 +29,21 @@ These modules are policy primitives, not a complete production security system:
 - No live model provider, authentication provider, worker runtime, durable audit store, merge operation, or deployment operation is implemented.
 
 A passing unit test proves only the tested helper behavior. It does not certify external identity, repository, operating-system, container, or network enforcement.
+
+
+## Auth0 access-token verification foundation
+
+`Auth0AccessTokenVerifier` is a server-side implementation of `HumanIdentityVerifier`. It verifies RS256 signatures using the issuer's HTTPS JWKS endpoint and fails closed on malformed tokens, unsupported algorithms, missing or ambiguous signing keys, unavailable JWKS, invalid signatures, issuer/audience/client mismatches, invalid time claims, and malformed permission claims.
+
+The verifier requires explicit configuration for the exact Auth0 issuer (including its trailing slash), API audience, and a non-empty allow-list of Auth0 application client IDs. It derives the subject and permission list only from the verified token. The JWKS cache is bounded to five minutes, network retrieval has a five-second abort timeout, and tokens are limited to 16 KiB.
+
+This is a cryptographic verification primitive, not a production authentication deployment. Before use by an API route:
+
+- Configure a dedicated Auth0 application and API for AI Engineering OS; do not reuse another project's Auth0 client or audience.
+- Enable RS256 signing, API RBAC, and the permissions claim in access tokens.
+- Supply issuer, audience, and allowed client IDs only through server-side configuration.
+- Construct the verifier only in a trusted server process and never accept verifier configuration or verified identity objects from a browser.
+- Add rate limiting, request-size limits, secure transport, route-level authorization, and operational monitoring.
+- Run integration tests against the actual Auth0 tenant and independently review the deployment configuration.
+
+No production API route, live Auth0 tenant, credential store, database-backed approval transaction, or Render service is connected by this change. The verifier does not authorize merge or deployment, and it does not change the OS-10.3 HOLD.
