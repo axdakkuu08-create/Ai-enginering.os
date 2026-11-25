@@ -1,3 +1,4 @@
+// Server-side Auth0 access-token verification for the OS human-identity boundary.
 import type {
   HumanIdentityVerifier,
   VerifiedHumanIdentity,
