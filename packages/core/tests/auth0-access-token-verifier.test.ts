@@ -1,7 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
   Auth0AccessTokenVerifier,
-  InvalidAccessTokenError,
 } from "../src/security/auth0-access-token-verifier.js";
 
 const ISSUER = "https://aios-test.example/";
