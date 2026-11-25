@@ -120,8 +120,8 @@ pid_b=$!
 wait "$pid_a"
 wait "$pid_b"
 
-result_a="$(tr -d '[:space:]' < "$tmp/a")"
-result_b="$(tr -d '[:space:]' < "$tmp/b")"
+result_a="$(tail -n 1 "$tmp/a" | tr -d '[:space:]')"
+result_b="$(tail -n 1 "$tmp/b" | tr -d '[:space:]')"
 wins=0
 [[ "$result_a" == "t" ]] && wins=$((wins + 1))
 [[ "$result_b" == "t" ]] && wins=$((wins + 1))
