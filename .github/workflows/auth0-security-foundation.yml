@@ -50,13 +50,8 @@ jobs:
       - name: ESLint for changed security files
         run: npx eslint packages/core/src/security/auth0-access-token-verifier.ts packages/core/tests/auth0-access-token-verifier.test.ts
 
-      - name: Format changed security files for review
-        run: |
-          npx prettier --write packages/core/src/security/auth0-access-token-verifier.ts packages/core/tests/auth0-access-token-verifier.test.ts
-          echo "===== AUTH0_VERIFIER_SOURCE ====="
-          cat packages/core/src/security/auth0-access-token-verifier.ts
-          echo "===== AUTH0_VERIFIER_TESTS ====="
-          cat packages/core/tests/auth0-access-token-verifier.test.ts
+      - name: Prettier check
+        run: npx prettier --check packages/core/src/security/auth0-access-token-verifier.ts packages/core/tests/auth0-access-token-verifier.test.ts packages/core/README.md .github/workflows/auth0-security-foundation.yml
 
       - name: Unit tests
         run: npm test
