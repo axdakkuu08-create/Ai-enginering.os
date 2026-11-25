@@ -64,7 +64,7 @@ first_result="$(psql -X -A -t -v ON_ERROR_STOP=1 -c "
     'global', 1, '$zero_hash', 'event-1', '$hash_a',
     '{\"id\":\"event-1\",\"outcome\":\"SUCCESS\"}'::jsonb
   );
-")"
+" | tail -n 1 | tr -d '[:space:]')"
 if [[ "$first_result" != "t" ]]; then
   echo "Expected first audit append to succeed, got: $first_result" >&2
   exit 1
