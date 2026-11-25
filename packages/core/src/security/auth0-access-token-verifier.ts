@@ -1,4 +1,3 @@
-// Server-side Auth0 access-token verification for the OS human-identity boundary.
 import type {
   HumanIdentityVerifier,
   VerifiedHumanIdentity,
@@ -26,8 +25,14 @@ interface JwtClaims {
   readonly permissions?: unknown;
 }
 
+interface Auth0SigningKey extends JsonWebKey {
+  readonly kid?: string;
+  readonly alg?: string;
+  readonly use?: string;
+}
+
 interface JsonWebKeySet {
-  readonly keys?: readonly JsonWebKey[];
+  readonly keys?: readonly Auth0SigningKey[];
 }
 
 export interface Auth0AccessTokenVerifierOptions {
@@ -75,9 +80,7 @@ function decodeJsonSegment<T>(segment: string): T {
 }
 
 function asNonEmptyString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0
-    ? value
-    : null;
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
 }
 
 function validateOptions(options: Auth0AccessTokenVerifierOptions): void {
@@ -96,7 +99,9 @@ function validateOptions(options: Auth0AccessTokenVerifierOptions): void {
     issuer.pathname !== "/" ||
     !options.issuer.endsWith("/")
   ) {
-    throw new TypeError("Auth0 issuer must be an exact HTTPS issuer ending in '/'.");
+    throw new TypeError(
+      "Auth0 issuer must be an exact HTTPS issuer ending in '/'.",
+    );
   }
   if (!options.audience.trim()) {
     throw new TypeError("Auth0 API audience must be non-empty.");
@@ -115,11 +120,13 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
   private readonly allowedClientIds: ReadonlySet<string>;
   private readonly now: () => number;
   private readonly fetcher: typeof fetch;
-  private cachedKeys: readonly JsonWebKey[] | null = null;
+  private cachedKeys: readonly Auth0SigningKey[] | null = null;
   private cacheExpiresAt = 0;
-  private pendingJwks: Promise<readonly JsonWebKey[]> | null = null;
+  private pendingJwks: Promise<readonly Auth0SigningKey[]> | null = null;
 
-  public constructor(private readonly options: Auth0AccessTokenVerifierOptions) {
+  public constructor(
+    private readonly options: Auth0AccessTokenVerifierOptions,
+  ) {
     validateOptions(options);
     this.issuer = options.issuer;
     this.jwksUrl = new URL(".well-known/jwks.json", options.issuer).toString();
@@ -193,7 +200,7 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
       const signedContent = new TextEncoder().encode(
         `${segments[0]}.${segments[1]}`,
       );
-      const signature = decodeBase64Url(segments[2]);
+      const signature = new Uint8Array(decodeBase64Url(segments[2]));
       const valid = await crypto.subtle.verify(
         "RSASSA-PKCS1-v1_5",
         publicKey,
@@ -204,7 +211,9 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
 
       return Object.freeze({
         subjectId,
-        permissions: Object.freeze([...claims.permissions]) as readonly string[],
+        permissions: Object.freeze([
+          ...claims.permissions,
+        ]) as readonly string[],
       });
     } catch {
       // Invalid credentials, unavailable JWKS, and cryptographic errors deny access.
@@ -245,7 +254,7 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
     return true;
   }
 
-  private async getSigningKeys(): Promise<readonly JsonWebKey[]> {
+  private async getSigningKeys(): Promise<readonly Auth0SigningKey[]> {
     if (this.cachedKeys && this.now() * 1000 < this.cacheExpiresAt) {
       return this.cachedKeys;
     }
@@ -262,7 +271,7 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
     }
   }
 
-  private async fetchSigningKeys(): Promise<readonly JsonWebKey[]> {
+  private async fetchSigningKeys(): Promise<readonly Auth0SigningKey[]> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
@@ -273,7 +282,9 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
         signal: controller.signal,
       });
       if (!response.ok) {
-        throw new InvalidAccessTokenError("Auth0 signing keys are unavailable.");
+        throw new InvalidAccessTokenError(
+          "Auth0 signing keys are unavailable.",
+        );
       }
       const body = (await response.json()) as JsonWebKeySet;
       if (
@@ -282,7 +293,9 @@ export class Auth0AccessTokenVerifier implements HumanIdentityVerifier {
         body.keys.length === 0 ||
         body.keys.length > 100
       ) {
-        throw new InvalidAccessTokenError("Auth0 signing key set is malformed.");
+        throw new InvalidAccessTokenError(
+          "Auth0 signing key set is malformed.",
+        );
       }
       return Object.freeze(
         body.keys.filter(
