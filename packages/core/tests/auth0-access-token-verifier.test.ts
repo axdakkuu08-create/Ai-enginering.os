@@ -139,7 +139,7 @@ describe("Auth0 RS256 access-token verifier", () => {
   it("rejects a token with a modified signature", async () => {
     const token = await createToken();
     const [header, payload, signature] = token.split(".");
-    const changed = `${header}.${payload}.${signature.slice(0, -1)}A`;
+    const changed = `${header}.${payload}.A${signature.slice(1)}`;
     await expect(makeVerifier().verifyCredential(changed)).resolves.toBeNull();
   });
 
