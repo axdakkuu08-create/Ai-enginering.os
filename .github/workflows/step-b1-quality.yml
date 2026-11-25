@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/projects-registry
+      - security/os103-neon-dedicated-project-prep
     paths:
       - "package.json"
       - "package-lock.json"
