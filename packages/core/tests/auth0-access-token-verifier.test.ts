@@ -1,15 +1,19 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import {
-  Auth0AccessTokenVerifier,
-} from "../src/security/auth0-access-token-verifier.js";
+import { Auth0AccessTokenVerifier } from "../src/security/auth0-access-token-verifier.js";
 
 const ISSUER = "https://aios-test.example/";
 const AUDIENCE = "https://api.ai-engineering-os.example";
 const CLIENT_ID = "aios-test-client";
 const NOW = 1_800_000_000;
 
+type TestJsonWebKey = JsonWebKey & {
+  kid?: string;
+  alg?: string;
+  use?: string;
+};
+
 let privateKey: CryptoKey;
-let publicJwk: JsonWebKey;
+let publicJwk: TestJsonWebKey;
 
 function base64Url(bytes: Uint8Array): string {
   let binary = "";
@@ -50,9 +54,7 @@ async function createToken(
   return `${content}.${base64Url(new Uint8Array(signature))}`;
 }
 
-function makeFetcher(
-  implementation?: typeof fetch,
-): typeof fetch {
+function makeFetcher(implementation?: typeof fetch): typeof fetch {
   if (implementation) return implementation;
   return (async () =>
     new Response(JSON.stringify({ keys: [publicJwk] }), {
@@ -111,10 +113,14 @@ describe("Auth0 RS256 access-token verifier", () => {
   });
 
   it("accepts an audience array only when it contains the configured API", async () => {
-    const token = await createToken({ aud: [AUDIENCE, "https://other-api.example"] });
-    await expect(makeVerifier().verifyCredential(token)).resolves.toMatchObject({
-      subjectId: "auth0|human-123",
+    const token = await createToken({
+      aud: [AUDIENCE, "https://other-api.example"],
     });
+    await expect(makeVerifier().verifyCredential(token)).resolves.toMatchObject(
+      {
+        subjectId: "auth0|human-123",
+      },
+    );
   });
 
   it("rejects an unapproved authorized party", async () => {
@@ -126,14 +132,22 @@ describe("Auth0 RS256 access-token verifier", () => {
     const expired = await createToken({ exp: NOW - 120 });
     const notYetValid = await createToken({ nbf: NOW + 120 });
     await expect(makeVerifier().verifyCredential(expired)).resolves.toBeNull();
-    await expect(makeVerifier().verifyCredential(notYetValid)).resolves.toBeNull();
+    await expect(
+      makeVerifier().verifyCredential(notYetValid),
+    ).resolves.toBeNull();
   });
 
   it("rejects unsupported algorithms and malformed credentials", async () => {
     const unsupported = await createToken({}, { alg: "none" });
-    await expect(makeVerifier().verifyCredential(unsupported)).resolves.toBeNull();
-    await expect(makeVerifier().verifyCredential("not-a-jwt")).resolves.toBeNull();
-    await expect(makeVerifier().verifyCredential("x".repeat(16_385))).resolves.toBeNull();
+    await expect(
+      makeVerifier().verifyCredential(unsupported),
+    ).resolves.toBeNull();
+    await expect(
+      makeVerifier().verifyCredential("not-a-jwt"),
+    ).resolves.toBeNull();
+    await expect(
+      makeVerifier().verifyCredential("x".repeat(16_385)),
+    ).resolves.toBeNull();
   });
 
   it("rejects a token with a modified signature", async () => {
@@ -149,9 +163,13 @@ describe("Auth0 RS256 access-token verifier", () => {
   });
 
   it("fails closed when the JWKS endpoint is unavailable", async () => {
-    const fetcher = vi.fn(async () => new Response(null, { status: 503 })) as unknown as typeof fetch;
+    const fetcher = vi.fn(
+      async () => new Response(null, { status: 503 }),
+    ) as unknown as typeof fetch;
     const token = await createToken();
-    await expect(makeVerifier(fetcher).verifyCredential(token)).resolves.toBeNull();
+    await expect(
+      makeVerifier(fetcher).verifyCredential(token),
+    ).resolves.toBeNull();
   });
 
   it("reuses cached signing keys within the cache window", async () => {
