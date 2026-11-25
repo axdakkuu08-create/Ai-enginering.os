@@ -9,6 +9,7 @@ on:
       - "packages/core/src/security/postgres-stores.ts"
       - "scripts/os103-postgres-integration.sh"
       - ".github/workflows/os103-postgres-integration.yml"
+      - ".github/workflows/step-b1-quality.yml"
   pull_request:
     paths:
       - "packages/core/sql/**"
