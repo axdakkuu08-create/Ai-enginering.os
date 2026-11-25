@@ -140,14 +140,8 @@ describe("PostgresAuditLedgerStore", () => {
           };
         }
         if (query.includes("aios_append_audit_event")) {
-          const [
-            stream,
-            nextSequence,
-            previousHash,
-            eventId,
-            hash,
-            eventJson,
-          ] = values;
+          const [stream, nextSequence, previousHash, eventId, hash, eventJson] =
+            values;
           if (
             Number(nextSequence) !== sequence + 1 ||
             previousHash !== lastHash ||
