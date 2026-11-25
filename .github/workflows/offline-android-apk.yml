@@ -22,6 +22,19 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Install Android platform
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Validate offline UI script
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          html = Path("app/src/main/assets/index.html").read_text()
+          scripts = re.findall(r"<script>(.*?)</script>", html, flags=re.S)
+          if len(scripts) != 1:
+              raise SystemExit("Expected exactly one packaged script block")
+          Path("/tmp/offline-ui.js").write_text(scripts[0])
+          PY
+          node --check /tmp/offline-ui.js
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
       - name: Verify packaged APK and offline boundary
