@@ -159,9 +159,12 @@ export class PostgresApprovalStore implements ApprovalStore {
 }
 
 /**
- * Durable append-only hash-chain adapter. It relies on a restricted DB role
- * with INSERT/SELECT only on the event table; hash chaining alone cannot stop
- * a database owner/superuser from rewriting the whole chain.
+ * Durable append-only hash-chain adapter.
+ *
+ * The audit-writer database role receives SELECT and EXECUTE only. A narrowly
+ * scoped SECURITY DEFINER function owned by a constrained NOLOGIN role performs
+ * the atomic head update and event insert. The database owner can still rewrite
+ * the full chain; independent external anchoring remains required.
  */
 export class PostgresAuditLedgerStore implements AuditLedgerStore {
   public constructor(
@@ -173,38 +176,25 @@ export class PostgresAuditLedgerStore implements AuditLedgerStore {
 
   public async append(event: SafeAuditEvent): Promise<AuditLedgerEntry> {
     for (let attempt = 0; attempt < 8; attempt += 1) {
-      // readAll verifies the stored head and events in one SQL snapshot.
-      // A competing writer is handled by the conditional head update below.
       const existing = await this.readAll();
       const sequence = existing.length + 1;
       const previousHash = existing.at(-1)?.hash ?? AUDIT_GENESIS_HASH;
       const entry = await createAuditLedgerEntry(sequence, previousHash, event);
 
       const inserted = await this.sql.query(
-        `WITH advanced AS (
-           UPDATE aios_audit_heads
-              SET sequence = $2, last_hash = $3
-            WHERE stream_id = $1
-              AND sequence = $4
-              AND last_hash = $5
-            RETURNING sequence
-         )
-         INSERT INTO aios_audit_events
-           (stream_id, sequence, event_id, previous_hash, event_hash, event_json)
-         SELECT $1, advanced.sequence, $6, $5, $3, $7::jsonb
-           FROM advanced
-         RETURNING sequence`,
+        `SELECT public.aios_append_audit_event(
+           $1, $2, $3, $4, $5, $6::jsonb
+         ) AS appended`,
         [
           this.streamId,
           sequence,
-          entry.hash,
-          sequence - 1,
           previousHash,
           event.id,
+          entry.hash,
           JSON.stringify(event),
         ],
       );
-      if (inserted.rows.length === 1 || inserted.rowCount === 1) {
+      if (inserted.rows[0]?.appended === true) {
         return entry;
       }
     }
@@ -212,8 +202,6 @@ export class PostgresAuditLedgerStore implements AuditLedgerStore {
   }
 
   public async readAll(): Promise<readonly AuditLedgerEntry[]> {
-    // A single statement gives events and their authoritative head the same
-    // MVCC snapshot. This also detects deletion of the final event rows.
     const result = await this.sql.query(
       `SELECT h.sequence AS head_sequence,
               h.last_hash AS head_hash,
