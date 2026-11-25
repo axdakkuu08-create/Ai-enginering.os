@@ -1,0 +1,62 @@
+name: OS-10.3 PostgreSQL Adapter Integration
+
+on:
+  push:
+    branches:
+      - security/os103-neon-dedicated-project-prep
+    paths:
+      - "packages/core/sql/**"
+      - "packages/core/src/security/postgres-stores.ts"
+      - "scripts/os103-postgres-integration.sh"
+      - ".github/workflows/os103-postgres-integration.yml"
+  pull_request:
+    paths:
+      - "packages/core/sql/**"
+      - "packages/core/src/security/postgres-stores.ts"
+      - "scripts/os103-postgres-integration.sh"
+      - ".github/workflows/os103-postgres-integration.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: os103-postgres-integration-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  postgres-integration:
+    name: Migration and least-privilege integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Apply migrations and test actual PostgreSQL behavior
+        run: bash scripts/os103-postgres-integration.sh
