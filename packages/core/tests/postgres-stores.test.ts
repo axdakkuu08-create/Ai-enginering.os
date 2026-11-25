@@ -139,33 +139,33 @@ describe("PostgresAuditLedgerStore", () => {
             rowCount: rows.length || 1,
           };
         }
-        if (query.includes("WITH advanced AS")) {
+        if (query.includes("aios_append_audit_event")) {
           const [
             stream,
             nextSequence,
-            hash,
-            expectedSequence,
-            expectedHash,
+            previousHash,
             eventId,
+            hash,
             eventJson,
           ] = values;
           if (
-            Number(expectedSequence) !== sequence ||
-            expectedHash !== lastHash
+            Number(nextSequence) !== sequence + 1 ||
+            previousHash !== lastHash ||
+            JSON.parse(String(eventJson)).id !== eventId
           ) {
-            return { rows: [], rowCount: 0 };
+            return { rows: [{ appended: false }], rowCount: 1 };
           }
           sequence = Number(nextSequence);
           lastHash = String(hash);
           stored.push({
             sequence,
-            previous_hash: expectedHash,
+            previous_hash: previousHash,
             event_hash: hash,
             event_json: JSON.parse(String(eventJson)),
             event_id: eventId,
             stream_id: stream,
           });
-          return { rows: [{ sequence }], rowCount: 1 };
+          return { rows: [{ appended: true }], rowCount: 1 };
         }
         throw new Error("Unexpected SQL statement in test fixture.");
       },
