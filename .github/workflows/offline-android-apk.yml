@@ -24,15 +24,22 @@ jobs:
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
-      - name: Verify APK and network permissions
+      - name: Verify packaged APK and offline boundary
         shell: bash
         run: |
-          test -s app/build/outputs/apk/debug/app-debug.apk
-          if grep -R --include='AndroidManifest.xml' -E 'android.permission.INTERNET|android.permission.ACCESS_NETWORK_STATE' app/src/main; then
-            echo "Unexpected network permission in source manifest" >&2
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          test -s "$APK"
+          "$AAPT" dump permissions "$APK" | tee /tmp/apk-permissions.txt
+          if grep -E 'android.permission.(INTERNET|ACCESS_NETWORK_STATE)' /tmp/apk-permissions.txt; then
+            echo "Unexpected network permission in packaged APK" >&2
             exit 1
           fi
-          echo "APK_SIZE_BYTES=$(stat -c%s app/build/outputs/apk/debug/app-debug.apk)" >> "$GITHUB_STEP_SUMMARY"
+          if grep -E '(src|href)="https?://' app/src/main/assets/index.html; then
+            echo "Unexpected remote asset reference in offline UI" >&2
+            exit 1
+          fi
+          echo "APK_SIZE_BYTES=$(stat -c%s "$APK")" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
           name: aios-os103-offline-review-apk
