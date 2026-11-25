@@ -118,7 +118,7 @@ jobs:
         run: |
           set -uo pipefail
           LOG_DIR="${{ steps.init.outputs.log_dir }}"
-          npx vitest run packages/core/tests/approval.test.ts --reporter=verbose 2>&1 | tee "$LOG_DIR/vitest-output.log"
+          npx vitest run packages/core/tests --reporter=verbose 2>&1 | tee "$LOG_DIR/vitest-output.log"
           TEST_EXIT="${PIPESTATUS[0]}"
           echo "VITEST_EXIT_CODE=$TEST_EXIT" >> "$GITHUB_ENV"
           exit "$TEST_EXIT"
