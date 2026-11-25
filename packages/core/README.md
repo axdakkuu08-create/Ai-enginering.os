@@ -47,3 +47,9 @@ This is a cryptographic verification primitive, not a production authentication 
 - Run integration tests against the actual Auth0 tenant and independently review the deployment configuration.
 
 No production API route, live Auth0 tenant, credential store, database-backed approval transaction, or Render service is connected by this change. The verifier does not authorize merge or deployment, and it does not change the OS-10.3 HOLD.
+
+## PostgreSQL security-store migration
+
+The migration at `packages/core/sql/001-os103-security-stores.sql` creates the approval and audit tables in the dedicated `app` schema. It expects the pre-provisioned `ai_engineering_os_app` role to be a NOLOGIN group role. That role receives only the table privileges needed for approval compare-and-set operations and audit-head advancement/event append; it cannot update, delete, or truncate audit-event rows and has no schema DDL privilege.
+
+The migration was applied and re-applied successfully on an isolated Neon test branch cloned from the dedicated AI Engineering OS database. Catalog checks confirmed all three tables are in `app` and verified the intended grants. The default Neon branch was not migrated. This validates the SQL and role-grant design on the test branch only; it does not establish a runtime login credential, connect a backend, or constitute production migration evidence.
