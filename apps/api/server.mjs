@@ -115,7 +115,7 @@ server.requestTimeout = 10_000;
 server.headersTimeout = 12_000;
 server.keepAliveTimeout = 5_000;
 const port = Number(process.env.PORT || 3000);
-verifier.loadKeys().then(() => { server.listen(port, "0.0.0.0"); console.log(JSON.stringify({ event: "clerk_jwks_ready", issuer: process.env.CLERK_ISSUER, audience: process.env.CLERK_AUDIENCE })); }).catch((error) => { console.error(JSON.stringify({ event: "clerk_jwks_unavailable", name: error?.name || "Error" })); process.exit(1); });
+verifier.loadKeys().then(async () => { await sql`SELECT 1`; server.listen(port, "0.0.0.0"); console.log(JSON.stringify({ event: "clerk_jwks_ready", issuer: process.env.CLERK_ISSUER, audience: process.env.CLERK_AUDIENCE })); console.log(JSON.stringify({ event: "neon_database_ready", database: "ai_engineering_os", environment: "staging" })); }).catch((error) => { console.error(JSON.stringify({ event: "startup_dependency_unavailable", name: error?.name || "Error" })); process.exit(1); });
 async function shutdown() {
   server.close(async () => { await sql.end({ timeout: 5 }); process.exit(0); });
   setTimeout(() => process.exit(1), 10_000).unref();
