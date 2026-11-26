@@ -13,5 +13,6 @@ CREATE TABLE IF NOT EXISTS app.aios_user_permissions (
   CONSTRAINT aios_user_permissions_granted_by_nonempty CHECK (length(trim(granted_by)) > 0)
 );
 REVOKE ALL ON TABLE app.aios_user_permissions FROM PUBLIC;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE app.aios_user_permissions FROM ai_engineering_os_app;
 GRANT SELECT ON TABLE app.aios_user_permissions TO ai_engineering_os_app;
 COMMIT;
