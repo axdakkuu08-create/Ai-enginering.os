@@ -47,11 +47,8 @@ async function appendAudit(tx, streamId, event) {
   const eventId = randomUUID();
   const payload = { ...event, eventId, streamId, sequence, occurredAt: new Date().toISOString() };
   const eventHash = createHash("sha256").update(String(previous.last_hash).trim() + JSON.stringify(payload)).digest("hex");
-  if (heads.length) {
-    await tx.unsafe("UPDATE app.aios_audit_heads SET sequence = $2, last_hash = $3 WHERE stream_id = $1", [streamId, sequence, eventHash]);
-  } else {
-    await tx.unsafe("INSERT INTO app.aios_audit_heads(stream_id, sequence, last_hash) VALUES ($1, $2, $3)", [streamId, sequence, eventHash]);
-  }
+  if (!heads.length) throw new Error("Audit stream is not initialized");
+  await tx.unsafe("UPDATE app.aios_audit_heads SET sequence = $2, last_hash = $3 WHERE stream_id = $1", [streamId, sequence, eventHash]);
   await tx.unsafe("INSERT INTO app.aios_audit_events(stream_id, sequence, event_id, previous_hash, event_hash, event_json) VALUES ($1, $2, $3, $4, $5, $6::jsonb)", [streamId, sequence, eventId, String(previous.last_hash).trim(), eventHash, JSON.stringify(payload)]);
   return payload;
 }
