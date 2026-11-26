@@ -8,7 +8,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "start:api": "node apps/api/server.mjs",
+    "test:api": "node --test apps/api/*.test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -17,5 +19,8 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.15.0",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "postgres": "3.4.7"
   }
 }
