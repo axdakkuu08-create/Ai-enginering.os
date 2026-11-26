@@ -10,7 +10,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "start:api": "node apps/api/server.mjs",
-    "test:api": "node --test apps/api/*.test.mjs"
+    "test:api": "node --test apps/api/auth.node.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
