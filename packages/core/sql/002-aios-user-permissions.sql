@@ -15,4 +15,7 @@ CREATE TABLE IF NOT EXISTS app.aios_user_permissions (
 REVOKE ALL ON TABLE app.aios_user_permissions FROM PUBLIC;
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE app.aios_user_permissions FROM ai_engineering_os_app;
 GRANT SELECT ON TABLE app.aios_user_permissions TO ai_engineering_os_app;
+INSERT INTO app.aios_audit_heads(stream_id, sequence, last_hash)
+VALUES ('approvals', 0, repeat('0', 64))
+ON CONFLICT (stream_id) DO NOTHING;
 COMMIT;
