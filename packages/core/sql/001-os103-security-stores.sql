@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS app.aios_audit_events (
 );
 
 REVOKE ALL ON app.aios_approval_gates, app.aios_audit_heads, app.aios_audit_events FROM PUBLIC;
+-- Reset any pre-existing direct grants before applying the exact runtime policy.
+REVOKE ALL ON app.aios_approval_gates, app.aios_audit_heads, app.aios_audit_events FROM ai_engineering_os_app;
 
 -- The runtime role can create/read/update approval gates with compare-and-set,
 -- advance the audit head, and append/read audit events. It cannot rewrite or
