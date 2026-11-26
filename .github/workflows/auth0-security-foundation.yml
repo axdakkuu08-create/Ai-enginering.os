@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feat/auth0-backend-security-foundation
+      - feat/backend-api-gateway-integration
     paths:
       - "package.json"
       - "package-lock.json"
