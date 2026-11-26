@@ -64,10 +64,10 @@ const server = createServer(async (request, response) => {
   }
   const url = new URL(request.url, "http://localhost");
   try {
-    if (request.method === "GET" && url.pathname === "/healthz") return send(response, 200, { status: "ok", service: "aios-api", mode: "staging" });
+    if (request.method === "GET" && url.pathname === "/healthz") return send(response, 200, { status: "ok", service: "aios-api", mode: "staging" }, origin && allowedOrigins.includes(origin) ? origin : undefined);
     if (request.method === "GET" && url.pathname === "/readyz") {
       await sql`SELECT 1`;
-      return send(response, 200, { status: "ready", database: "connected" });
+      return send(response, 200, { status: "ready", database: "connected" }, origin && allowedOrigins.includes(origin) ? origin : undefined);
     }
     if (url.pathname.startsWith("/v1/")) {
       const identity = await authenticate(request);
@@ -115,7 +115,7 @@ server.requestTimeout = 10_000;
 server.headersTimeout = 12_000;
 server.keepAliveTimeout = 5_000;
 const port = Number(process.env.PORT || 3000);
-server.listen(port, "0.0.0.0");
+verifier.loadKeys().then(() => { server.listen(port, "0.0.0.0"); console.log(JSON.stringify({ event: "clerk_jwks_ready", issuer: process.env.CLERK_ISSUER, audience: process.env.CLERK_AUDIENCE })); }).catch((error) => { console.error(JSON.stringify({ event: "clerk_jwks_unavailable", name: error?.name || "Error" })); process.exit(1); });
 async function shutdown() {
   server.close(async () => { await sql.end({ timeout: 5 }); process.exit(0); });
   setTimeout(() => process.exit(1), 10_000).unref();
