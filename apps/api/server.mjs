@@ -1,12 +1,28 @@
 import { createServer } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
 import postgres from "postgres";
-import { ClerkTokenVerifier, bearerFromRequest } from "./clerk-auth.mjs";
+import { Auth0TokenVerifier, bearerFromRequest } from "./auth0-auth.mjs";
 
-const required = ["CLERK_ISSUER", "CLERK_AUDIENCE", "ALLOWED_ORIGINS", "DATABASE_URL"];
+const required = ["AUTH0_ISSUER", "AUTH0_AUDIENCE", "AUTH0_ALLOWED_CLIENT_IDS", "ALLOWED_ORIGINS", "DATABASE_URL"];
 for (const key of required) if (!process.env[key]) throw new Error(`Missing required environment variable: ${key}`);
+
 const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",").map((value) => value.trim()).filter(Boolean);
-const verifier = new ClerkTokenVerifier({ issuer: process.env.CLERK_ISSUER, audience: process.env.CLERK_AUDIENCE, allowedOrigins });
+if (allowedOrigins.length === 0 || allowedOrigins.some((origin) => {
+  try {
+    const parsed = new URL(origin);
+    return parsed.origin !== origin || (parsed.protocol !== "https:" && parsed.hostname !== "localhost");
+  } catch {
+    return true;
+  }
+})) {
+  throw new Error("ALLOWED_ORIGINS must contain exact HTTPS origins (localhost is allowed for development)");
+}
+const allowedClientIds = process.env.AUTH0_ALLOWED_CLIENT_IDS.split(",").map((value) => value.trim()).filter(Boolean);
+const verifier = new Auth0TokenVerifier({
+  issuer: process.env.AUTH0_ISSUER,
+  audience: process.env.AUTH0_AUDIENCE,
+  allowedClientIds,
+});
 const sql = postgres(process.env.DATABASE_URL, { max: 5, idle_timeout: 20, connect_timeout: 10, ssl: "require", prepare: false });
 const maxBody = 16_384;
 
@@ -30,9 +46,12 @@ async function readBody(request) {
 }
 async function authenticate(request) {
   const origin = request.headers.origin;
-  if (typeof origin !== "string" || !allowedOrigins.includes(origin)) throw Object.assign(new Error("Origin is not allowed"), { status: 403 });
+  if (typeof origin !== "string" || !allowedOrigins.includes(origin)) {
+    throw Object.assign(new Error("Origin is not allowed"), { status: 403 });
+  }
   const identity = await verifier.verifyToken(bearerFromRequest(request));
-  if (identity.authorizedParty !== origin) throw Object.assign(new Error("Token origin does not match request origin"), { status: 403 });
+  // Auth0 azp is a registered client ID, not a browser origin. Browser-origin
+  // policy is enforced independently above; authorization comes only from Neon.
   const rows = await sql.unsafe("SELECT permission FROM app.aios_user_permissions WHERE subject_id = $1 AND enabled = true", [identity.subjectId]);
   return { ...identity, permissions: rows.map((row) => row.permission) };
 }
@@ -103,7 +122,7 @@ const server = createServer(async (request, response) => {
     }
     return send(response, 404, { error: "Route not found" });
   } catch (error) {
-    const status = Number(error?.status) || (error?.message?.includes("token") || error?.message?.includes("JWT") || error?.message?.includes("bearer") ? 401 : 500);
+    const status = Number(error?.status) || (error?.message?.toLowerCase().includes("token") || error?.message?.toLowerCase().includes("jwt") || error?.message?.toLowerCase().includes("bearer") ? 401 : 500);
     if (status === 500) console.error(JSON.stringify({ event: "request_failed", path: url.pathname, name: error?.name || "Error" }));
     return send(response, status, { error: status === 500 ? "Internal server error" : error.message }, origin && allowedOrigins.includes(origin) ? origin : undefined);
   }
@@ -112,7 +131,15 @@ server.requestTimeout = 10_000;
 server.headersTimeout = 12_000;
 server.keepAliveTimeout = 5_000;
 const port = Number(process.env.PORT || 3000);
-verifier.loadKeys().then(async () => { await sql`SELECT 1`; server.listen(port, "0.0.0.0"); console.log(JSON.stringify({ event: "clerk_jwks_ready", issuer: process.env.CLERK_ISSUER, audience: process.env.CLERK_AUDIENCE })); console.log(JSON.stringify({ event: "neon_database_ready", database: "ai_engineering_os", environment: "staging" })); }).catch((error) => { console.error(JSON.stringify({ event: "startup_dependency_unavailable", name: error?.name || "Error" })); process.exit(1); });
+verifier.loadKeys().then(async () => {
+  await sql`SELECT 1`;
+  server.listen(port, "0.0.0.0");
+  console.log(JSON.stringify({ event: "auth0_jwks_ready", issuer: process.env.AUTH0_ISSUER, audience: process.env.AUTH0_AUDIENCE }));
+  console.log(JSON.stringify({ event: "neon_database_ready", database: "ai_engineering_os", environment: "staging" }));
+}).catch((error) => {
+  console.error(JSON.stringify({ event: "startup_dependency_unavailable", name: error?.name || "Error" }));
+  process.exit(1);
+});
 async function shutdown() {
   server.close(async () => { await sql.end({ timeout: 5 }); process.exit(0); });
   setTimeout(() => process.exit(1), 10_000).unref();
