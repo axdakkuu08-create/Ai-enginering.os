@@ -5,8 +5,8 @@ from the Neon database. JWT permission or role claims are never used for authori
 
 Required environment variables:
 
-- `CLERK_ISSUER`: exact HTTPS Clerk instance issuer, including its trailing slash
-  (for example, `https://your-instance.clerk.accounts.dev/`).
+- `CLERK_ISSUER`: exact HTTPS Clerk instance issuer, without a trailing slash
+  (for example, `https://your-instance.clerk.accounts.dev`).
 - `CLERK_AUDIENCE`: the audience configured in the Clerk session token. The current
   AIOS development instance is configured with `ai-engineering-os-api`.
 - `ALLOWED_ORIGINS`: comma-separated exact HTTPS browser origins used for CORS and
