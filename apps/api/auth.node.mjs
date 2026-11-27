@@ -60,7 +60,7 @@ for (const [name, claims] of [
   ["unapproved authorized party", { azp: "https://attacker.example" }],
   ["expired token", { exp: now - 100 }],
   ["missing subject", { sub: "" }],
-  ["non-Clerk subject", { sub: "auth0|legacy-user" }],
+  ["non-Clerk subject", { sub: "legacy-provider|legacy-user" }],
   ["missing session ID", { sid: "" }],
   ["future issue time", { iat: now + 120 }],
   ["token not active", { nbf: now + 120 }],
