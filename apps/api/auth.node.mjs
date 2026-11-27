@@ -118,6 +118,14 @@ test("classifies JWKS network failures as infrastructure errors", async () => {
   await assert.rejects(() => unavailable.verifyToken(token()), ClerkKeyDiscoveryError);
 });
 
+test("rejects malformed and oversized JWKS responses as infrastructure errors", async () => {
+  const malformed = verifier(async () => new Response("{not-json", { status: 200 }));
+  await assert.rejects(() => malformed.verifyToken(token()), ClerkKeyDiscoveryError);
+
+  const oversized = verifier(async () => new Response(" ".repeat(65_537), { status: 200 }));
+  await assert.rejects(() => oversized.verifyToken(token()), ClerkKeyDiscoveryError);
+});
+
 test("coalesces concurrent JWKS discovery requests", async () => {
   let calls = 0;
   const instance = verifier(async () => {
