@@ -49,7 +49,15 @@ async function authenticate(request) {
   if (typeof origin !== "string" || !allowedOrigins.includes(origin)) {
     throw Object.assign(new Error("Origin is not allowed"), { status: 403 });
   }
-  const identity = await verifier.verifyToken(bearerFromRequest(request));
+  let identity;
+  try {
+    identity = await verifier.verifyToken(bearerFromRequest(request));
+  } catch (error) {
+    // Keep JWKS/network failures as server errors; reject malformed or untrusted
+    // credentials uniformly without exposing verifier details to the caller.
+    if (error?.message?.includes("signing-key discovery") || error?.message?.includes("JWKS")) throw error;
+    throw Object.assign(new Error("Invalid bearer token"), { status: 401 });
+  }
   // Auth0 azp is a registered client ID, not a browser origin. Browser-origin
   // policy is enforced independently above; authorization comes only from Neon.
   const rows = await sql.unsafe("SELECT permission FROM app.aios_user_permissions WHERE subject_id = $1 AND enabled = true", [identity.subjectId]);
