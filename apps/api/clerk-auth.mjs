@@ -36,7 +36,7 @@ export class ClerkTokenVerifier {
       throw new TypeError("At least one authorized Clerk party is required");
     }
 
-    this.issuer = parsedIssuer.toString();
+    this.issuer = parsedIssuer.origin;
     this.audience = audience;
     this.authorizedParties = new Set(authorizedParties);
     this.fetcher = fetcher;
@@ -44,7 +44,7 @@ export class ClerkTokenVerifier {
     this.jwks = null;
     this.jwksExpiresAt = 0;
     this.pendingJwks = null;
-    this.jwksUrl = new URL(".well-known/jwks.json", this.issuer).toString();
+    this.jwksUrl = new URL("/.well-known/jwks.json", this.issuer).toString();
   }
 
   async loadKeys(forceRefresh = false) {
