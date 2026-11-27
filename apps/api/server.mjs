@@ -1,21 +1,25 @@
 import { createServer } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
 import postgres from "postgres";
-import { ClerkTokenVerifier, bearerFromRequest } from "./clerk-auth.mjs";
+import { ClerkKeyDiscoveryError, ClerkTokenVerifier, bearerFromRequest } from "./clerk-auth.mjs";
 
 const required = ["CLERK_ISSUER", "CLERK_AUDIENCE", "ALLOWED_ORIGINS", "DATABASE_URL"];
 for (const key of required) if (!process.env[key]) throw new Error(`Missing required environment variable: ${key}`);
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",").map((value) => value.trim()).filter(Boolean);
-if (allowedOrigins.length === 0 || allowedOrigins.some((origin) => {
+function isAllowedOrigin(value) {
   try {
-    const parsed = new URL(origin);
-    return parsed.origin !== origin || (parsed.protocol !== "https:" && parsed.hostname !== "localhost");
+    const parsed = new URL(value);
+    const secure = parsed.protocol === "https:";
+    const local = parsed.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
+    return (secure || local) && parsed.origin === value && !parsed.username && !parsed.password && !parsed.search && !parsed.hash;
   } catch {
-    return true;
+    return false;
   }
-})) {
-  throw new Error("ALLOWED_ORIGINS must contain exact HTTPS origins (localhost is allowed for development)");
+}
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",").map((value) => value.trim());
+if (allowedOrigins.length === 0 || allowedOrigins.some((origin) => !isAllowedOrigin(origin))) {
+  throw new Error("ALLOWED_ORIGINS must contain exact HTTPS origins (HTTP localhost is allowed for development)");
 }
 const verifier = new ClerkTokenVerifier({
   issuer: process.env.CLERK_ISSUER,
@@ -36,29 +40,43 @@ function send(response, status, body, origin) {
   response.end(JSON.stringify(body));
 }
 async function readBody(request) {
-  let raw = "";
+  const declaredLength = Number(request.headers["content-length"] || 0);
+  if (declaredLength > maxBody) throw Object.assign(new Error("Request body too large"), { status: 413 });
+  const chunks = [];
+  let total = 0;
   for await (const chunk of request) {
-    raw += chunk;
-    if (Buffer.byteLength(raw) > maxBody) throw new Error("Request body too large");
+    total += chunk.length;
+    if (total > maxBody) throw Object.assign(new Error("Request body too large"), { status: 413 });
+    chunks.push(chunk);
   }
-  return raw ? JSON.parse(raw) : {};
+  if (total === 0) return {};
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    throw Object.assign(new Error("Malformed JSON request body"), { status: 400 });
+  }
 }
 async function authenticate(request) {
   const origin = request.headers.origin;
-  if (typeof origin !== "string" || !allowedOrigins.includes(origin)) {
+  if (origin !== undefined && (typeof origin !== "string" || !allowedOrigins.includes(origin))) {
     throw Object.assign(new Error("Origin is not allowed"), { status: 403 });
   }
+
   let identity;
   try {
     identity = await verifier.verifyToken(bearerFromRequest(request));
   } catch (error) {
-    // Keep JWKS/network failures as server errors; reject malformed or untrusted
-    // credentials uniformly without exposing verifier details to the caller.
-    if (error?.message?.includes("signing-key discovery") || error?.message?.includes("JWKS")) throw error;
+    if (error instanceof ClerkKeyDiscoveryError) {
+      throw Object.assign(new Error("Authentication service temporarily unavailable"), { status: 503 });
+    }
     throw Object.assign(new Error("Invalid bearer token"), { status: 401 });
   }
-  // Clerk azp is an authorized frontend party. It is checked against the same
-  // exact-origin allow-list as CORS; authorization still comes only from Neon.
+  // Browser Origin, when present, must match the signed Clerk authorized party.
+  // Native/server clients may omit Origin; their signed azp must still be allow-listed.
+  if (origin && origin !== identity.authorizedParty) {
+    throw Object.assign(new Error("Request origin does not match the authenticated Clerk party"), { status: 403 });
+  }
+  // Permissions come exclusively from Neon. No JWT role/permission claims are trusted.
   const rows = await sql.unsafe("SELECT permission FROM app.aios_user_permissions WHERE subject_id = $1 AND enabled = true", [identity.subjectId]);
   return { ...identity, permissions: rows.map((row) => row.permission) };
 }
@@ -105,8 +123,11 @@ const server = createServer(async (request, response) => {
       const approvalMatch = url.pathname.match(/^\/v1\/approvals\/([A-Za-z0-9._:-]{1,128})\/decision$/);
       if (request.method === "POST" && approvalMatch) {
         requirePermission(identity, "approval:write");
+        if (!String(request.headers["content-type"] || "").toLowerCase().startsWith("application/json")) {
+          return send(response, 415, { error: "Content-Type must be application/json" }, origin && allowedOrigins.includes(origin) ? origin : undefined);
+        }
         const body = await readBody(request);
-        if (!["APPROVED", "DENIED"].includes(body.status) || typeof body.proposalDigest !== "string" || typeof body.baseRevision !== "string") {
+        if (!body || typeof body !== "object" || Array.isArray(body) || !["APPROVED", "DENIED"].includes(body.status) || typeof body.proposalDigest !== "string" || typeof body.baseRevision !== "string") {
           return send(response, 400, { error: "Invalid approval decision payload" }, origin);
         }
         const result = await sql.begin(async (tx) => {
@@ -129,9 +150,10 @@ const server = createServer(async (request, response) => {
     }
     return send(response, 404, { error: "Route not found" });
   } catch (error) {
-    const status = Number(error?.status) || (error?.message?.toLowerCase().includes("token") || error?.message?.toLowerCase().includes("jwt") || error?.message?.toLowerCase().includes("bearer") ? 401 : 500);
+    const status = Number(error?.status) || 500;
     if (status === 500) console.error(JSON.stringify({ event: "request_failed", path: url.pathname, name: error?.name || "Error" }));
-    return send(response, status, { error: status === 500 ? "Internal server error" : error.message }, origin && allowedOrigins.includes(origin) ? origin : undefined);
+    const message = status === 500 ? "Internal server error" : error.message;
+    return send(response, status, { error: message }, origin && allowedOrigins.includes(origin) ? origin : undefined);
   }
 });
 server.requestTimeout = 10_000;
