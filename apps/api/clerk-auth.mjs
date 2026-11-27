@@ -2,38 +2,62 @@ import { createPublicKey, verify as verifySignature, constants } from "node:cryp
 
 const MAX_TOKEN_BYTES = 16_384;
 const JWKS_CACHE_MS = 300_000;
+const JWKS_REFRESH_COOLDOWN_MS = 15_000;
 const CLOCK_SKEW_SECONDS = 5;
+const MIN_RSA_MODULUS_BITS = 2048;
+
+export class ClerkKeyDiscoveryError extends Error {
+  constructor(message, options) {
+    super(message, options);
+    this.name = "ClerkKeyDiscoveryError";
+  }
+}
 
 function decodeJsonPart(part) {
   if (typeof part !== "string" || !/^[A-Za-z0-9_-]+$/.test(part)) {
     throw new Error("Malformed JWT encoding");
   }
-  const value = JSON.parse(Buffer.from(part, "base64url").toString("utf8"));
+  let value;
+  try {
+    value = JSON.parse(Buffer.from(part, "base64url").toString("utf8"));
+  } catch (error) {
+    throw new Error("Malformed JWT JSON", { cause: error });
+  }
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Malformed JWT JSON");
   }
   return value;
 }
 
+function isAllowedOrigin(value) {
+  if (typeof value !== "string" || !value.trim()) return false;
+  try {
+    const parsed = new URL(value);
+    const secure = parsed.protocol === "https:";
+    const local = parsed.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
+    return (secure || local) && parsed.origin === value && !parsed.username && !parsed.password && !parsed.search && !parsed.hash;
+  } catch {
+    return false;
+  }
+}
+
 export class ClerkTokenVerifier {
   constructor({ issuer, audience, authorizedParties, fetcher = fetch, now = () => Date.now() / 1000 }) {
-    const parsedIssuer = new URL(issuer);
-    if (
-      parsedIssuer.protocol !== "https:" ||
-      parsedIssuer.username ||
-      parsedIssuer.password ||
-      parsedIssuer.pathname !== "/" ||
-      parsedIssuer.search ||
-      parsedIssuer.hash
-    ) {
-      throw new TypeError("CLERK_ISSUER must be an HTTPS Clerk instance origin with a trailing slash");
+    let parsedIssuer;
+    try {
+      parsedIssuer = new URL(issuer);
+    } catch (error) {
+      throw new TypeError("CLERK_ISSUER must be an exact HTTPS Clerk instance origin", { cause: error });
     }
-    if (typeof audience !== "string" || !audience.trim()) {
-      throw new TypeError("CLERK_AUDIENCE is required");
+    if (!isAllowedOrigin(issuer) || parsedIssuer.protocol !== "https:") {
+      throw new TypeError("CLERK_ISSUER must be an exact HTTPS Clerk instance origin without a trailing slash");
+    }
+    if (typeof audience !== "string" || !audience.trim() || audience !== audience.trim()) {
+      throw new TypeError("CLERK_AUDIENCE is required and must not contain surrounding whitespace");
     }
     if (!Array.isArray(authorizedParties) || authorizedParties.length === 0 ||
-        authorizedParties.some((party) => typeof party !== "string" || !party.trim())) {
-      throw new TypeError("At least one authorized Clerk party is required");
+        authorizedParties.some((party) => !isAllowedOrigin(party))) {
+      throw new TypeError("Authorized Clerk parties must be exact HTTPS origins (HTTP localhost is allowed for development)");
     }
 
     this.issuer = parsedIssuer.origin;
@@ -44,6 +68,7 @@ export class ClerkTokenVerifier {
     this.jwks = null;
     this.jwksExpiresAt = 0;
     this.pendingJwks = null;
+    this.lastForcedRefreshAt = 0;
     this.jwksUrl = new URL("/.well-known/jwks.json", this.issuer).toString();
   }
 
@@ -54,14 +79,25 @@ export class ClerkTokenVerifier {
     if (this.pendingJwks) return this.pendingJwks;
 
     this.pendingJwks = (async () => {
-      const response = await this.fetcher(this.jwksUrl, {
-        signal: AbortSignal.timeout(5000),
-        headers: { accept: "application/json" },
-      });
-      if (!response.ok) throw new Error("Clerk signing-key discovery failed");
-      const body = await response.json();
-      if (!Array.isArray(body.keys) || body.keys.length === 0 || body.keys.length > 20) {
-        throw new Error("Invalid Clerk JWKS response");
+      let response;
+      try {
+        response = await this.fetcher(this.jwksUrl, {
+          signal: AbortSignal.timeout(5000),
+          headers: { accept: "application/json" },
+        });
+      } catch (error) {
+        throw new ClerkKeyDiscoveryError("Clerk signing-key discovery unavailable", { cause: error });
+      }
+      if (!response?.ok) throw new ClerkKeyDiscoveryError("Clerk signing-key discovery failed");
+
+      let body;
+      try {
+        body = await response.json();
+      } catch (error) {
+        throw new ClerkKeyDiscoveryError("Clerk signing-key response was not valid JSON", { cause: error });
+      }
+      if (!Array.isArray(body?.keys) || body.keys.length === 0 || body.keys.length > 20) {
+        throw new ClerkKeyDiscoveryError("Invalid Clerk JWKS response");
       }
       this.jwks = body.keys;
       this.jwksExpiresAt = this.now() * 1000 + JWKS_CACHE_MS;
@@ -73,6 +109,13 @@ export class ClerkTokenVerifier {
     } finally {
       this.pendingJwks = null;
     }
+  }
+
+  async refreshKeysForUnknownKid() {
+    const now = this.now() * 1000;
+    if (now - this.lastForcedRefreshAt < JWKS_REFRESH_COOLDOWN_MS) return this.jwks ?? [];
+    this.lastForcedRefreshAt = now;
+    return this.loadKeys(true);
   }
 
   async verifyToken(token) {
@@ -87,20 +130,29 @@ export class ClerkTokenVerifier {
     if (header.alg !== "RS256" || typeof header.kid !== "string" || !header.kid || header.crit) {
       throw new Error("Unsupported Clerk token header");
     }
+    if (!/^[A-Za-z0-9_-]+$/.test(parts[2])) throw new Error("Malformed JWT signature");
 
     const findSigningKey = (keys) => keys.find((key) =>
       key.kid === header.kid &&
       key.kty === "RSA" &&
       key.use === "sig" &&
-      (!key.alg || key.alg === "RS256") &&
-      (!Array.isArray(key.key_ops) || key.key_ops.includes("verify"))
+      (key.alg === undefined || key.alg === "RS256") &&
+      (key.key_ops === undefined || (Array.isArray(key.key_ops) && key.key_ops.includes("verify")))
     );
 
     let jwk = findSigningKey(await this.loadKeys());
-    if (!jwk) jwk = findSigningKey(await this.loadKeys(true));
+    if (!jwk) jwk = findSigningKey(await this.refreshKeysForUnknownKid());
     if (!jwk) throw new Error("Unknown Clerk signing key");
 
-    const publicKey = createPublicKey({ key: jwk, format: "jwk" });
+    let publicKey;
+    try {
+      publicKey = createPublicKey({ key: jwk, format: "jwk" });
+    } catch (error) {
+      throw new ClerkKeyDiscoveryError("Clerk signing key is invalid", { cause: error });
+    }
+    if (publicKey.asymmetricKeyDetails?.modulusLength < MIN_RSA_MODULUS_BITS) {
+      throw new ClerkKeyDiscoveryError("Clerk RSA signing key is below the minimum strength");
+    }
     const signature = Buffer.from(parts[2], "base64url");
     const signedData = Buffer.from(parts[0] + "." + parts[1]);
     const valid = verifySignature(
@@ -122,14 +174,14 @@ export class ClerkTokenVerifier {
     }
 
     const now = this.now();
-    if (typeof claims.exp !== "number" || claims.exp <= now - CLOCK_SKEW_SECONDS) {
+    if (!Number.isFinite(claims.exp) || claims.exp <= now - CLOCK_SKEW_SECONDS) {
       throw new Error("Expired Clerk token");
     }
-    if (typeof claims.iat !== "number" || claims.iat > now + CLOCK_SKEW_SECONDS) {
+    if (!Number.isFinite(claims.iat) || claims.iat > now + CLOCK_SKEW_SECONDS) {
       throw new Error("Invalid Clerk token issue time");
     }
     if (claims.nbf !== undefined &&
-        (typeof claims.nbf !== "number" || claims.nbf > now + CLOCK_SKEW_SECONDS)) {
+        (!Number.isFinite(claims.nbf) || claims.nbf > now + CLOCK_SKEW_SECONDS)) {
       throw new Error("Clerk token not active");
     }
     if (claims.sts !== undefined && claims.sts !== "active") {
@@ -149,8 +201,8 @@ export class ClerkTokenVerifier {
 
 export function bearerFromRequest(request) {
   const value = request.headers.authorization;
-  if (typeof value !== "string" || !value.startsWith("Bearer ")) {
-    throw new Error("Missing bearer token");
+  if (typeof value !== "string" || !/^Bearer [^\\s]+$/.test(value)) {
+    throw new Error("Missing or malformed bearer token");
   }
   return value.slice(7);
 }
