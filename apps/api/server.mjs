@@ -1,9 +1,9 @@
 import { createServer } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
 import postgres from "postgres";
-import { Auth0TokenVerifier, bearerFromRequest } from "./auth0-auth.mjs";
+import { ClerkTokenVerifier, bearerFromRequest } from "./clerk-auth.mjs";
 
-const required = ["AUTH0_ISSUER", "AUTH0_AUDIENCE", "AUTH0_ALLOWED_CLIENT_IDS", "ALLOWED_ORIGINS", "DATABASE_URL"];
+const required = ["CLERK_ISSUER", "CLERK_AUDIENCE", "ALLOWED_ORIGINS", "DATABASE_URL"];
 for (const key of required) if (!process.env[key]) throw new Error(`Missing required environment variable: ${key}`);
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS.split(",").map((value) => value.trim()).filter(Boolean);
@@ -17,11 +17,10 @@ if (allowedOrigins.length === 0 || allowedOrigins.some((origin) => {
 })) {
   throw new Error("ALLOWED_ORIGINS must contain exact HTTPS origins (localhost is allowed for development)");
 }
-const allowedClientIds = process.env.AUTH0_ALLOWED_CLIENT_IDS.split(",").map((value) => value.trim()).filter(Boolean);
-const verifier = new Auth0TokenVerifier({
-  issuer: process.env.AUTH0_ISSUER,
-  audience: process.env.AUTH0_AUDIENCE,
-  allowedClientIds,
+const verifier = new ClerkTokenVerifier({
+  issuer: process.env.CLERK_ISSUER,
+  audience: process.env.CLERK_AUDIENCE,
+  authorizedParties: allowedOrigins,
 });
 const sql = postgres(process.env.DATABASE_URL, { max: 5, idle_timeout: 20, connect_timeout: 10, ssl: "require", prepare: false });
 const maxBody = 16_384;
@@ -58,8 +57,8 @@ async function authenticate(request) {
     if (error?.message?.includes("signing-key discovery") || error?.message?.includes("JWKS")) throw error;
     throw Object.assign(new Error("Invalid bearer token"), { status: 401 });
   }
-  // Auth0 azp is a registered client ID, not a browser origin. Browser-origin
-  // policy is enforced independently above; authorization comes only from Neon.
+  // Clerk azp is an authorized frontend party. It is checked against the same
+  // exact-origin allow-list as CORS; authorization still comes only from Neon.
   const rows = await sql.unsafe("SELECT permission FROM app.aios_user_permissions WHERE subject_id = $1 AND enabled = true", [identity.subjectId]);
   return { ...identity, permissions: rows.map((row) => row.permission) };
 }
@@ -142,7 +141,7 @@ const port = Number(process.env.PORT || 3000);
 verifier.loadKeys().then(async () => {
   await sql`SELECT 1`;
   server.listen(port, "0.0.0.0");
-  console.log(JSON.stringify({ event: "auth0_jwks_ready", issuer: process.env.AUTH0_ISSUER, audience: process.env.AUTH0_AUDIENCE }));
+  console.log(JSON.stringify({ event: "clerk_jwks_ready", issuer: process.env.CLERK_ISSUER, audience: process.env.CLERK_AUDIENCE }));
   console.log(JSON.stringify({ event: "neon_database_ready", database: "ai_engineering_os", environment: "staging" }));
 }).catch((error) => {
   console.error(JSON.stringify({ event: "startup_dependency_unavailable", name: error?.name || "Error" }));
