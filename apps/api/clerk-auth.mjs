@@ -221,7 +221,7 @@ export class ClerkTokenVerifier {
 
 export function bearerFromRequest(request) {
   const value = request.headers.authorization;
-  if (typeof value !== "string" || !/^Bearer [^\\s]+$/.test(value)) {
+  if (typeof value !== "string" || !/^Bearer [^\s]+$/.test(value)) {
     throw new Error("Missing or malformed bearer token");
   }
   return value.slice(7);
