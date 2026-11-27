@@ -1,6 +1,7 @@
 import { createPublicKey, verify as verifySignature, constants } from "node:crypto";
 
 const MAX_TOKEN_BYTES = 16_384;
+const MAX_JWKS_BYTES = 65_536;
 const JWKS_CACHE_MS = 300_000;
 const JWKS_REFRESH_COOLDOWN_MS = 15_000;
 const CLOCK_SKEW_SECONDS = 5;
@@ -92,9 +93,13 @@ export class ClerkTokenVerifier {
 
       let body;
       try {
-        body = await response.json();
+        const raw = await response.text();
+        if (Buffer.byteLength(raw, "utf8") > MAX_JWKS_BYTES) {
+          throw new Error("Clerk JWKS response exceeds the size limit");
+        }
+        body = JSON.parse(raw);
       } catch (error) {
-        throw new ClerkKeyDiscoveryError("Clerk signing-key response was not valid JSON", { cause: error });
+        throw new ClerkKeyDiscoveryError("Clerk signing-key response is invalid or too large", { cause: error });
       }
       if (!Array.isArray(body?.keys) || body.keys.length === 0 || body.keys.length > 20) {
         throw new ClerkKeyDiscoveryError("Invalid Clerk JWKS response");
