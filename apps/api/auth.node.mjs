@@ -6,7 +6,7 @@ import { ClerkTokenVerifier } from "./clerk-auth.mjs";
 const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const jwk = { ...publicKey.export({ format: "jwk" }), kid: "clerk-test-key", alg: "RS256", use: "sig", key_ops: ["verify"] };
 const now = 1_800_000_000;
-const issuer = "https://sample.clerk.accounts.dev/";
+const issuer = "https://sample.clerk.accounts.dev";
 const audience = "ai-engineering-os-api";
 const party = "https://dashboard.example";
 const b64 = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -89,7 +89,7 @@ test("rejects non-RS256 algorithms", async () => {
 
 test("requires an exact HTTPS Clerk issuer origin", () => {
   assert.throws(() => new ClerkTokenVerifier({
-    issuer: "http://sample.clerk.accounts.dev/",
+    issuer: "http://sample.clerk.accounts.dev",
     audience,
     authorizedParties: [party],
   }));
