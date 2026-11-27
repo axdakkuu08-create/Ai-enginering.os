@@ -91,27 +91,6 @@ test("rejects non-RS256 algorithms", async () => {
 });
 
 test("requires an exact HTTPS Clerk issuer origin", () => {
-  assert.throws(() => new ClerkTokenVerifier({
-    issuer: "http://sample.clerk.accounts.dev",
-    audience,
-    authorizedParties: [party],
-  }));
-});
-
-test("requires at least one authorized party", () => {
-  assert.throws(() => new ClerkTokenVerifier({
-    issuer,
-    audience,
-    authorizedParties: [],
-  }));
-});
-
-test("treats JWKS discovery failures as infrastructure errors", async () => {
-  const unavailable = verifier(async () => new Response("unavailable", { status: 503 }));
-  await assert.rejects(() => unavailable.verifyToken(token()), /Clerk signing-key discovery failed/);
-});
-
-test("requires an exact HTTPS Clerk issuer origin", () => {
   for (const invalid of ["http://sample.clerk.accounts.dev", "https://sample.clerk.accounts.dev/", "https://sample.clerk.accounts.dev/path"]) {
     assert.throws(() => new ClerkTokenVerifier({ issuer: invalid, audience, authorizedParties: [party] }));
   }
