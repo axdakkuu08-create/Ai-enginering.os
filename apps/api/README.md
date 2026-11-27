@@ -26,8 +26,9 @@ RS256 session tokens only, and checks issuer, audience, Clerk user subject, sess
 ID, expiration and activation time claims, active session status when present, and
 allow-listed `azp` authorized parties. RSA signing keys below 2048 bits are rejected.
 
-JWKS requests are time-limited, cached for five minutes, coalesced while in flight,
-and forced refreshes for unknown key IDs are throttled to avoid remote-request
+JWKS responses are size-capped at 64 KiB. Requests are time-limited, cached for five
+minutes, coalesced while in flight, and forced refreshes for unknown key IDs are
+throttled to avoid remote-request
 amplification. Key-discovery failures are treated as temporary service failures,
 not as invalid user credentials.
 
