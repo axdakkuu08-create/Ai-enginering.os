@@ -123,7 +123,7 @@ const server = createServer(async (request, response) => {
       const approvalMatch = url.pathname.match(/^\/v1\/approvals\/([A-Za-z0-9._:-]{1,128})\/decision$/);
       if (request.method === "POST" && approvalMatch) {
         requirePermission(identity, "approval:write");
-        if (!String(request.headers["content-type"] || "").toLowerCase().startsWith("application/json")) {
+        if (!/^application\/json(?:\s*;|$)/i.test(String(request.headers["content-type"] || ""))) {
           return send(response, 415, { error: "Content-Type must be application/json" }, origin && allowedOrigins.includes(origin) ? origin : undefined);
         }
         const body = await readBody(request);
