@@ -93,11 +93,26 @@ export class ClerkTokenVerifier {
 
       let body;
       try {
-        const raw = await response.text();
-        if (Buffer.byteLength(raw, "utf8") > MAX_JWKS_BYTES) {
-          throw new Error("Clerk JWKS response exceeds the size limit");
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error("Clerk JWKS response body is unavailable");
+        const chunks = [];
+        let totalBytes = 0;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = Buffer.from(value);
+            totalBytes += chunk.length;
+            if (totalBytes > MAX_JWKS_BYTES) {
+              await reader.cancel();
+              throw new Error("Clerk JWKS response exceeds the size limit");
+            }
+            chunks.push(chunk);
+          }
+        } finally {
+          reader.releaseLock();
         }
-        body = JSON.parse(raw);
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
       } catch (error) {
         throw new ClerkKeyDiscoveryError("Clerk signing-key response is invalid or too large", { cause: error });
       }
